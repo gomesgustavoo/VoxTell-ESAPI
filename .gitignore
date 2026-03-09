@@ -3,8 +3,5 @@
 *.vsidx
 __pycache__/
 *.pyc
-
-# Model files (too large for GitHub)
 *.pth
-*.onnx
-*.pt
+.env
