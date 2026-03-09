@@ -1,69 +1,148 @@
-# VoxTell Eclipse 
+# VoxTell Server
 
-> **A Project that connects [VoxTell](https://github.com/MIC-DKFZ/VoxTell) — a free-text-prompted 3D medical image segmentation model — to Varian Eclipse via the Eclipse Scripting API (ESAPI).**
+> Python/FastAPI backend that accepts CT data over HTTP, runs VoxTell inference, and returns DICOM LPS contour points.
 
-This project is a **fork of the original VoxTell model** ([MIC-DKFZ/VoxTell](https://github.com/MIC-DKFZ/VoxTell)), extended with a REST API layer designed to act as a backend for a clinical Eclipse plugin. The companion C# interface script lives in a separate repository: [gomesgustavoo/voxtell-eclipse-interface](https://github.com/gomesgustavoo/voxtell-eclipse-interface).
+[**Root README**](../README.md) · [**Interface README**](../voxtell_interface/README.md)
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
 - [The Data Conversion Pipeline](#the-data-conversion-pipeline)
   - [1. DICOM Geometry → LPS Affine](#1-dicom-geometry--lps-affine)
   - [2. ESAPI Voxels → NIfTI (LPS → RAS)](#2-esapi-voxels--nifti-lps--ras)
   - [3. VoxTell Inference](#3-voxtell-inference)
   - [4. Segmentation Masks → LPS Contour Points](#4-segmentation-masks--lps-contour-points)
-- [API Reference](#api-reference)
-- [Setup & Running](#setup--running)
-- [Configuration](#configuration)
-- [Proprietary DLL Notice](#proprietary-dll-notice)
+- [Module Reference](#module-reference)
 - [License](#license)
 
 ---
 
-## Overview
+## Prerequisites
 
-Varian Eclipse is a clinical treatment planning system widely used in radiation oncology. Its ESAPI allows scripting access to patient CT volumes and structure sets. VoxTell is a state-of-the-art vision-language segmentation model capable of segmenting any anatomy from a plain-text prompt (e.g., `"liver"`, `"left kidney"`).
-
-This project bridges the two by:
-
-1. **Accepting raw CT voxel data** streamed slice-by-slice from the Eclipse contouring workspace via HTTP.
-2. **Reconstructing the volume** as a NIfTI file, properly converting coordinate systems (DICOM LPS → NIfTI RAS).
-3. **Running VoxTell inference** driven by free-text anatomical prompts.
-4. **Returning contour points** in DICOM LPS patient coordinates, ready to be drawn as RT Structure Set contours inside Eclipse.
-
-The API exposes a **session-based, async workflow** so that the .NET ESAPI script can stream a full CT volume (often 200+ slices) over HTTP without holding the Eclipse UI thread.
+- **Linux** with **NVIDIA GPU** and **CUDA 11.8+** (CPU inference is supported but slow for clinical volumes)
+- [Miniconda](https://docs.anaconda.com/miniconda/) or Anaconda
+- **Python 3.12**
+- **~20 GB disk** for model weights and text encoder
 
 ---
 
-## Architecture
+## Installation
 
+### 1. Create the environment
+
+```bash
+conda create -n voxtell python=3.12 -y
+conda activate voxtell
 ```
-┌─────────────────────────────────────────────────┐
-│              Varian Eclipse (Windows)           │
-│                                                 │
-│  C# ESAPI Script (VoxTell-Interface)            │
-│  ├─ VoxelEncoder   → base64(gzip(int32-LE))     │
-│  ├─ VoxTellApiClient → HTTP calls to this API   │
-│  └─ EsapiStructureImporter → apply LPS contours │
-└───────────────────┬─────────────────────────────┘
-                    │ HTTP/JSON (LAN or localhost)
-┌───────────────────▼─────────────────────────────┐
-│            VoxTell Backend  (this repo)         │
-│                                                 │
-│  POST  /sessions              ← volume metadata │
-│  PUT   /sessions/{id}/slices  ← one slice each  │
-│  POST  /sessions/{id}/finalize ← assemble NIfTI │
-│  POST  /inference             ← text prompts    │
-│  GET   /inference/{job_id}    ← poll results    │
-│                                                 │
-│  nifti_builder  → coord conversion + .nii.gz    │
-│  voxtell_worker → VoxTell model inference       │
-│  contour_utils  → masks → LPS contour points    │
-└─────────────────────────────────────────────────┘
+
+### 2. Install PyTorch (CUDA)
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
+
+### 3. Install this package with API extras
+
+```bash
+git clone https://github.com/gomesgustavoo/VoxTell-ESAPI.git
+cd VoxTell-ESAPI/voxtell-server
+pip install -e ".[api]"
+```
+
+### 4. Download the VoxTell model weights
+
+```bash
+python download_model.py
+```
+
+Or set `VOXTELL_MODEL_DIR` to point to a directory containing `plans.json` and `fold_0/checkpoint_final.pth`.
+
+### 5. Start the server
+
+```bash
+VOXTELL_MODEL_DIR=./models bash run.sh
+```
+
+Or copy `.env.example` to `.env`, fill in the values, and run `bash run.sh`.
+
+### 6. Verify
+
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","model_loaded":true}
+```
+
+The interactive API docs (Swagger UI) are available at `http://localhost:8000/docs`.
+
+---
+
+## Configuration
+
+All settings are configured through environment variables or a `.env` file. See [`.env.example`](.env.example) for the template.
+
+| Variable | Default | Description |
+|---|---|---|
+| `VOXTELL_MODEL_DIR` | *(required)* | Path to model directory (`plans.json` + `fold_0/`) |
+| `VOXTELL_DEVICE` | `cuda` | `cuda` or `cpu` |
+| `VOXTELL_GPU_ID` | `0` | GPU index when using CUDA |
+| `VOXTELL_TEXT_MODEL` | `Qwen/Qwen3-Embedding-4B` | HuggingFace text encoder model ID |
+| `VOXTELL_SESSION_DIR` | `/tmp/voxtell_sessions` | Where NIfTI session files are stored |
+| `VOXTELL_SESSION_TTL_SECONDS` | `7200` | Session expiry in seconds (default: 2 hours) |
+| `VOXTELL_CLEANUP_INTERVAL_SECONDS` | `300` | Background cleanup task interval in seconds |
+| `VOXTELL_HOST` | `0.0.0.0` | Uvicorn bind address |
+| `VOXTELL_PORT` | `8000` | Uvicorn port |
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Check server and model status |
+| `POST` | `/sessions` | Create a session with volume geometry metadata |
+| `PUT` | `/sessions/{id}/slices/{z}` | Upload one gzip+base64 encoded CT slice |
+| `POST` | `/sessions/{id}/finalize` | Assemble all slices into a NIfTI file |
+| `DELETE` | `/sessions/{id}` | Remove session and its NIfTI file |
+| `POST` | `/inference` | Submit segmentation job with text prompts |
+| `GET` | `/inference/{job_id}` | Poll job status and retrieve LPS contour results |
+
+### Session Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    C->>S: POST /sessions (geometry)
+    S-->>C: 200 {session_id, slices_total}
+
+    loop For each z-index
+        C->>S: PUT /sessions/{id}/slices/{z}
+        S-->>C: 200 {z_index, slices_received, slices_total}
+    end
+
+    C->>S: POST /sessions/{id}/finalize
+    S-->>C: 200 {session_id, slices_total}
+
+    C->>S: POST /inference {session_id, prompts}
+    S-->>C: 202 {job_id}
+
+    loop Poll until status ≠ pending/running
+        C->>S: GET /inference/{job_id}
+        S-->>C: 200 {status, results?}
+    end
+
+    C->>S: DELETE /sessions/{id}
+    S-->>C: 200
+```
+
+> [!NOTE]
+> Interactive documentation (Swagger UI) is available at `http://localhost:8000/docs` when the server is running.
 
 ---
 
@@ -77,10 +156,10 @@ Eclipse exposes image geometry through ESAPI properties (`image.Origin`, `image.
 
 The server constructs a **4×4 affine matrix** that maps integer voxel indices `(x, y, z)` to millimetre positions in the **DICOM LPS patient coordinate system** (Left, Posterior, Superior):
 
-```
-affine_lps[:3, 0] = row_direction    × x_res   # column  (+X) axis
-affine_lps[:3, 1] = col_direction    × y_res   # row     (+Y) axis
-affine_lps[:3, 2] = slice_direction  × z_res   # slice   (+Z) axis
+```python
+affine_lps[:3, 0] = row_direction    * x_res   # column  (+X) axis
+affine_lps[:3, 1] = col_direction    * y_res   # row     (+Y) axis
+affine_lps[:3, 2] = slice_direction  * z_res   # slice   (+Z) axis
 affine_lps[:3, 3] = origin                     # position of voxel (0,0,0)
 ```
 
@@ -151,131 +230,20 @@ structure.AddContourOnImagePlane(contour_points_lps, z_index);
 
 ---
 
-## API Reference
+## Module Reference
 
-Interactive documentation (Swagger UI) is available at `http://localhost:8000/docs` when the server is running.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Check server and model status |
-| `POST` | `/sessions` | Create a session with volume geometry metadata |
-| `PUT` | `/sessions/{id}/slices/{z}` | Upload one gzip+base64 encoded CT slice |
-| `POST` | `/sessions/{id}/finalize` | Assemble all slices into a NIfTI file |
-| `DELETE` | `/sessions/{id}` | Remove session and its NIfTI file |
-| `POST` | `/inference` | Submit segmentation job with text prompts |
-| `GET` | `/inference/{job_id}` | Poll job status, retrieve LPS contour results |
-
-**Session lifecycle:**
-
-```
-POST /sessions  →  PUT /sessions/{id}/slices/{z} (×N slices)
-             →  POST /sessions/{id}/finalize
-             →  POST /inference  →  GET /inference/{job_id}  (poll)
-             →  DELETE /sessions/{id}
-```
-
----
-
-## Setup & Running
-
-### Prerequisites
-
-- Linux with NVIDIA GPU (CUDA 11.8+) — CPU inference is supported but slow for clinical volumes
-- [Miniconda](https://docs.anaconda.com/miniconda/) or Anaconda
-
-### 1. Create the environment
-
-```bash
-conda create -n voxtell python=3.12 -y
-conda activate voxtell
-```
-
-### 2. Install PyTorch (CUDA)
-
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu118
-```
-
-### 3. Install this package with API extras
-
-```bash
-git clone https://github.com/gomesgustavoo/voxtell-eclipse-extension.git
-cd voxtell-eclipse-extension
-pip install -e ".[api]"
-```
-
-### 4. Download the VoxTell model weights
-
-```bash
-python download_model.py
-```
-
-Or set `VOXTELL_MODEL_DIR` to point to a directory containing `plans.json` and `fold_0/checkpoint_final.pth`.
-
-### 5. Start the server
-
-```bash
-VOXTELL_MODEL_DIR=/path/to/model bash run.sh
-```
-
-Or copy `.env.example` to `.env`, fill in the values, and just run `bash run.sh`.
-
-The API will be available at `http://0.0.0.0:8000`.
-
----
-
-## Configuration
-
-All settings are configured through environment variables (or a `.env` file). See `.env.example` for the full list.
-
-| Variable | Default | Description |
-|---|---|---|
-| `VOXTELL_MODEL_DIR` | *(required)* | Path to model directory (`plans.json` + `fold_0/`) |
-| `VOXTELL_DEVICE` | `cuda` | `cuda` or `cpu` |
-| `VOXTELL_GPU_ID` | `0` | GPU index when using CUDA |
-| `VOXTELL_TEXT_MODEL` | `Qwen/Qwen3-Embedding-4B` | HuggingFace text encoder model ID |
-| `VOXTELL_SESSION_DIR` | `/tmp/voxtell_sessions` | Where NIfTI session files are stored |
-| `VOXTELL_SESSION_TTL_SECONDS` | `7200` | Session expiry (seconds) |
-| `VOXTELL_HOST` | `0.0.0.0` | Uvicorn bind address |
-| `VOXTELL_PORT` | `8000` | Uvicorn port |
-
----
-
-## Proprietary DLL Notice
-
-The companion C# ESAPI script ([voxtell-eclipse-interface](https://github.com/gomesgustavoo/voxtell-eclipse-interface)) depends on **Varian Medical Systems proprietary DLL files** (`VMS.CA.Scripting.dll` and related assemblies) that are **not redistributable** and **not included** in either repository.
-
-To compile and run the Eclipse interface you must:
-
-1. Have a licensed installation of **Varian Eclipse** (version 16+).
-2. Copy the required `.dll` files from your Eclipse installation into the `reference/` directory of the interface project.
-3. Build with Visual Studio 2019+ targeting **.NET Framework 4.6.2**.
-
-**This repository (the Python API server) has no such dependency** and runs entirely on open-source libraries.
+| Module | Purpose |
+|---|---|
+| [`main.py`](api/main.py) | FastAPI app, route definitions, lifespan events, background job execution |
+| [`schemas.py`](api/schemas.py) | Pydantic models for all request and response payloads |
+| [`config.py`](api/config.py) | `Settings` class — loads environment variables with `VOXTELL_` prefix |
+| [`session_manager.py`](api/session_manager.py) | In-memory session and job stores, TTL-based cleanup loop |
+| [`nifti_builder.py`](api/nifti_builder.py) | LPS affine construction, slice decoding, LPS→RAS NIfTI assembly |
+| [`contour_utils.py`](api/contour_utils.py) | RAS mask → DICOM LPS contour extraction via `find_contours` + affine projection |
+| [`voxtell_worker.py`](api/voxtell_worker.py) | Async-safe wrapper around `VoxTellPredictor` with GPU lock |
 
 ---
 
 ## License
-
-VoxTell is developed by the [Medical Image Computing Lab (MIC)](https://www.dkfz.de/en/mic/index.php) at DKFZ Heidelberg.
-
-- **Paper:** [arXiv:2511.11450](https://arxiv.org/abs/2511.11450)
-- **Original repository:** [MIC-DKFZ/VoxTell](https://github.com/MIC-DKFZ/VoxTell)
-
-> **Rokuss et al.** (2025). *VoxTell: Free-Text Promptable Universal 3D Medical Image Segmentation*. arXiv:2511.11450.
-
-```bibtex
-@misc{rokuss2025voxtell,
-  title={VoxTell: Free-Text Promptable Universal 3D Medical Image Segmentation}, 
-  author={Maximilian Rokuss and Moritz Langenberg and Yannick Kirchhoff and Fabian Isensee and Benjamin Hamm and Constantin Ulrich and Sebastian Regnery and Lukas Bauer and Efthimios Katsigiannopulos and Tobias Norajitra and Klaus Maier-Hein},
-  year={2025},
-  eprint={2511.11450},
-  archivePrefix={arXiv}
-}
-```
-Thanks Max and Moritz for developing this amazing work.
-
-If you use this work, please let me know:
-📧 https://www.linkedin.com/in/gustavoogomesss/ 
 
 The Python source code in this repository (the `api/` package) is original work and is released under the **Apache 2.0 License** (see [LICENSE](LICENSE)), consistent with the upstream VoxTell project.
