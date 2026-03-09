@@ -17,7 +17,7 @@
 
 ## What is this?
 
-[VoxTell](https://github.com/MIC-DKFZ/VoxTell) is a vision-language 3D medical image segmentation model developed by the [Medical Image Computing Lab (MIC)](https://www.dkfz.de/en/mic/index.php) at DKFZ Heidelberg. Given a CT volume and a plain-text anatomical prompt (e.g. `"liver"`, `"left kidney"`), it produces a 3D segmentation mask — no pre-defined label set required.
+[VoxTell](https://github.com/MIC-DKFZ/VoxTell) is a vision-language 3D medical image segmentation model developed by the [Medical Image Computing Lab (MIC)](https://www.dkfz.de/en/mic/index.php) at DKFZ Heidelberg. Given a CT volume and a plain-text anatomical prompt (e.g. `"liver"`, `"left kidney"`), it produces a 3D segmentation mask.
 
 This project is a **fork of VoxTell** that adds two components to bring it into a clinical workflow:
 
@@ -66,9 +66,12 @@ See the full [Server README](voxtell-server/README.md) for prerequisites, config
 
 ### Eclipse Plugin
 
-- Build the C# solution in Visual Studio (requires Varian ESAPI DLLs from a licensed Eclipse installation)
-- Deploy the `.esapi.dll` to your Eclipse scripts directory
-- Launch from Eclipse's scripting menu — connect, upload, segment, import
+**Option A — Pre-built (recommended):** Download the latest `VoxTell-Interface.zip` from the [Releases](https://github.com/gomesgustavoo/VoxTell-ESAPI/releases) page, extract both DLLs to your Eclipse scripts directory, and load the script from Eclipse's scripting menu.
+
+**Option B — Build from source:** Build the C# solution in Visual Studio (requires Varian ESAPI DLLs from a licensed Eclipse installation), then deploy the `.esapi.dll` to your Eclipse scripts directory.
+
+> [!IMPORTANT]
+> A **structure set must already exist** on the open patient in Eclipse before running any segmentation prompts. The plugin imports contours into the active structure set.
 
 See the full [Interface README](voxtell-esapi-client/README.md) for build instructions, usage workflow, and configuration.
 

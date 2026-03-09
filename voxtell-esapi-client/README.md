@@ -28,11 +28,24 @@
 
 ---
 
+## Download (Pre-built)
+
+The easiest way to install the plugin is to download the pre-built release ZIP — no build environment needed.
+
+1. Go to the [Releases page](https://github.com/gomesgustavoo/VoxTell-ESAPI/releases) and download the latest `VoxTell-Interface.zip`
+2. Extract the ZIP — it contains:
+   - `VoxTell-Interface.esapi.dll` — the compiled Eclipse plugin
+   - `Newtonsoft.Json.dll` — JSON runtime dependency
+3. Copy **both DLLs** to your Eclipse scripts directory
+4. Follow the [Installation in Eclipse](#installation-in-eclipse) steps below
+
+---
+
 ## Prerequisites
 
-- **Varian Eclipse 16+** with ESAPI scripting enabled
+- **Varian Eclipse** with ESAPI scripting enabled
 - **Windows** (Eclipse's host OS)
-- **Visual Studio 2019+** with .NET desktop development workload
+- **Visual Studio 2019+** with .NET desktop development workload *(only required if building from source)*
 - **.NET Framework 4.6.2** targeting pack
 - A running **[VoxTell Server](../voxtell-server/README.md)** accessible from the Eclipse workstation
 
@@ -78,7 +91,10 @@ Open `voxtell_interface/VoxTell-Interface.sln` in Visual Studio.
 
 ## Usage Workflow
 
-1. **Open a patient** in Eclipse with a CT image and structure set
+> [!IMPORTANT]
+> The open patient in Eclipse must already have a **structure set** created and selected before you run any segmentation prompts. The plugin imports contours into the active structure set — it cannot create a structure set from scratch.
+
+1. **Open a patient** in Eclipse with a CT image and an existing structure set
 2. **Launch the plugin** from the scripting menu — the VoxTell AI Segmentation window opens
 3. **Check server health** — Click the health check button to verify the VoxTell Server is reachable
 4. **Start session & upload** — The plugin extracts CT slices from the open image, compresses each slice (gzip + base64), and streams them to the server. A progress bar tracks upload status.
