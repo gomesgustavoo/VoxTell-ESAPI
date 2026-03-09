@@ -2,7 +2,7 @@
 
 > Python/FastAPI backend that accepts CT data over HTTP, runs VoxTell inference, and returns DICOM LPS contour points.
 
-[**Root README**](../README.md) · [**Interface README**](../voxtell_interface/README.md)
+[**Root README**](../README.md) · [**Interface README**](../voxtell-esapi-client/README.md)
 
 ---
 
