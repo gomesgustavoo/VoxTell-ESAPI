@@ -1,0 +1,2 @@
+[console_scripts]
+voxtell-predict = voxtell.inference.predict_from_raw_data:main
