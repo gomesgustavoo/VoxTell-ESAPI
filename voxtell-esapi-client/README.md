@@ -1,4 +1,4 @@
-# VoxTell ESAPI Client
+# VoxTell Interface
 
 > C# ESAPI plugin that connects Varian Eclipse to the VoxTell segmentation server for AI-powered contouring.
 
@@ -50,7 +50,7 @@ Find the following files in your Eclipse installation directory (typically `C:\P
 ### 2. Copy DLLs to the reference directory
 
 ```
-voxtell-esapi-client/
+voxtell_interface/
 └── reference/
     ├── VMS.TPS.Common.Model.API.dll      ← copy here
     └── VMS.TPS.Common.Model.Types.dll    ← copy here
@@ -58,7 +58,7 @@ voxtell-esapi-client/
 
 ### 3. Open the solution
 
-Open `voxtell-esapi-client/VoxTell-Interface.sln` in Visual Studio.
+Open `voxtell_interface/VoxTell-Interface.sln` in Visual Studio.
 
 ### 4. Build
 

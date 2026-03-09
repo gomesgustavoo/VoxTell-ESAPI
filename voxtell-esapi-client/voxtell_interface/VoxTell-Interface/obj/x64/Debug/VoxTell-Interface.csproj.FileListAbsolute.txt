@@ -1,9 +1,0 @@
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\obj\x64\Debug\VoxTell-Interface.csproj.AssemblyReference.cache
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\obj\x64\Debug\VoxTell-Interface.csproj.CoreCompileInputs.cache
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\bin\x64\Debug\VoxTell-Interface.dll
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\bin\x64\Debug\VoxTell-Interface.pdb
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\bin\x64\Debug\Newtonsoft.Json.dll
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\bin\x64\Debug\Newtonsoft.Json.xml
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\obj\x64\Debug\VoxTell-.0974A98B.Up2Date
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\obj\x64\Debug\VoxTell-Interface.dll
-C:\Users\varianinstaller\source\repos\VoxTell-Interface\VoxTell-Interface\obj\x64\Debug\VoxTell-Interface.pdb
