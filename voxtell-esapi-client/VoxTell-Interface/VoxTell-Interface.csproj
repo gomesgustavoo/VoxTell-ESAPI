@@ -13,6 +13,17 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
+    <!--
+      Where the Varian ESAPI assemblies live. Overridable so the project is not tied to a
+      fixed directory depth:
+        msbuild /p:VarianApiDir="C:\Program Files (x86)\Varian\RTM\16.1\esapi\API"
+      The previous six-level relative HintPath (..\..\..\..\..\..\Program Files (x86)\...)
+      only resolved when the project sat exactly six levels below the drive root, and the
+      current repository layout already broke that.
+      Note the x86 path holds AMD64 assemblies — that is Varian's installer convention, not
+      a mistake to "fix".
+    -->
+    <VarianApiDir Condition=" '$(VarianApiDir)' == '' ">C:\Program Files (x86)\Varian\RTM\16.1\esapi\API</VarianApiDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,7 +34,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
     <DebugType>pdbonly</DebugType>
@@ -33,7 +43,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -44,6 +53,8 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.Net.Http" />
+    <!-- ProtectedData (DPAPI), for the credential store -->
+    <Reference Include="System.Security" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -52,29 +63,61 @@
     <Reference Include="System.Xml" />
     <!-- TPS External Beam Planning API — provides write-enabled ScriptContext -->
     <Reference Include="VMS.TPS.Common.Model.API">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Varian\RTM\16.1\esapi\API\VMS.TPS.Common.Model.API.dll</HintPath>
+      <HintPath>$(VarianApiDir)\VMS.TPS.Common.Model.API.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
       <Private>False</Private>
     </Reference>
     <!-- VVector and other shared types -->
-    <Reference Include="VMS.TPS.Common.Model.Types, Version=1.0.450.33, Culture=neutral, PublicKeyToken=305b81e210ec4b89, processorArchitecture=AMD64">
+    <Reference Include="VMS.TPS.Common.Model.Types">
+      <HintPath>$(VarianApiDir)\VMS.TPS.Common.Model.Types.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Varian\RTM\16.1\esapi\API\VMS.TPS.Common.Model.Types.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <!-- WPF framework references (needed for Window parameter in TPS Execute) -->
     <Reference Include="PresentationFramework" />
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
+    <!-- Binding derives from MarkupExtension, which lives here, so any code that constructs
+         a Binding needs this even with no XAML in the project. XamlReader is here too. -->
+    <Reference Include="System.Xaml" />
     <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Script.cs" />
     <Compile Include="Models\ApiModels.cs" />
-    <Compile Include="Services\VoxTellApiClient.cs" />
+    <!-- The review-list row model and its colours. ESAPI-free on purpose: the preview harness
+         renders the review list without the Varian assemblies, so this cannot live inside
+         EsapiStructureImporter.cs the way it used to. -->
+    <Compile Include="Models\StructurePlan.cs" />
+    <Compile Include="Models\StructurePalette.cs" />
+    <Compile Include="ViewModels\WorkflowPhase.cs" />
+    <!-- The seam between the ViewModel and the view: a snapshot the view renders and an
+         interface it drives. Both ESAPI-free, so the preview project links them. -->
+    <Compile Include="ViewModels\MainViewState.cs" />
+    <Compile Include="ViewModels\IMainCommands.cs" />
+    <!-- Torch-free, ESAPI-free: shared with the console harness -->
+    <Compile Include="Services\IVolumeSource.cs" />
+    <Compile Include="Services\IThreadGate.cs" />
     <Compile Include="Services\VoxelEncoder.cs" />
+    <Compile Include="Services\VoxTellApiClient.cs" />
+    <Compile Include="Services\Auth\Pkce.cs" />
+    <Compile Include="Services\Auth\JwtPeek.cs" />
+    <Compile Include="Services\Auth\LoopbackListener.cs" />
+    <Compile Include="Services\Auth\TokenStore.cs" />
+    <Compile Include="Services\Auth\AuthService.cs" />
+    <!-- The only files that touch VMS.TPS.Common.Model.* -->
+    <Compile Include="Services\EsapiGate.cs" />
+    <Compile Include="Services\EsapiVolumeSource.cs" />
     <Compile Include="Services\EsapiStructureImporter.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
+    <!-- The WPF visual language: palette, type scale, spacing, and the four control
+         templates. No ESAPI and no WinForms, so the preview project links these directly. -->
+    <Compile Include="Views\Theme.cs" />
+    <Compile Include="Views\Ui.cs" />
+    <Compile Include="Views\TemplateFactory.cs" />
+    <!-- Palette, type scale, spacing and DPI. No ESAPI, but WinForms-only, so the harness
+         does not link it. Deleted once MainForm.cs goes. -->
+    <Compile Include="Views\UiTheme.cs" />
     <Compile Include="Views\MainForm.cs">
       <SubType>UserControl</SubType>
     </Compile>

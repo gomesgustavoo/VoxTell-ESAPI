@@ -2,7 +2,13 @@
 
 > C# ESAPI plugin that connects Varian Eclipse to the VoxTell segmentation server for AI-powered contouring.
 
-[**Root README**](../README.md) · [**Server README**](../voxtell-server/README.md)
+[**Root README**](../README.md) · [**Backend README**](../voxtell-cloud/README.md) · [**Wire protocol**](../voxtell-cloud/PROTOCOL.md)
+
+> [!NOTE]
+> This plugin speaks the **v2** protocol specified in
+> [PROTOCOL.md](../voxtell-cloud/PROTOCOL.md): Keycloak SSO, one presigned upload of the
+> whole volume as int16, a job queue with cancellation, and an explicit review step before
+> anything is written into a structure set.
 
 ---
 
@@ -47,37 +53,55 @@ The easiest way to install the plugin is to download the pre-built release ZIP �
 - **Windows** (Eclipse's host OS)
 - **Visual Studio 2019+** with .NET desktop development workload *(only required if building from source)*
 - **.NET Framework 4.6.2** targeting pack
-- A running **[VoxTell Server](../voxtell-server/README.md)** accessible from the Eclipse workstation
+- A reachable **[VoxTell Cloud](../voxtell-cloud/README.md)** backend (the hosted service, or your own — see the backend README) plus an API key
 
 ---
 
 ## Build Instructions
 
-### 1. Locate Varian DLLs
+The project reads the Varian assemblies straight from the Eclipse installation via the
+`VarianApiDir` MSBuild property, which defaults to
+`C:\Program Files (x86)\Varian\RTM\16.1\esapi\API`. Nothing needs copying.
 
-Find the following files in your Eclipse installation directory (typically `C:\Program Files\Varian\RTM\<version>\`):
+> [!NOTE]
+> Earlier revisions of this README asked you to copy the DLLs into `reference/`. Nothing
+> ever read them from there — the csproj referenced the install path directly.
 
-- `VMS.TPS.Common.Model.API.dll`
-- `VMS.TPS.Common.Model.Types.dll`
+### Visual Studio
 
-### 2. Copy DLLs to the reference directory
+Open `VoxTell-Interface.sln`, set **Release** / **x64**, and build. The post-build step
+copies the output to `VoxTell-Interface.esapi.dll`.
+
+### Command line
 
 ```
-voxtell_interface/
-└── reference/
-    ├── VMS.TPS.Common.Model.API.dll      ← copy here
-    └── VMS.TPS.Common.Model.Types.dll    ← copy here
+msbuild VoxTell-Interface.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-### 3. Open the solution
+If Eclipse is installed elsewhere, or you are on a different RTM version, point the build at it:
 
-Open `voxtell_interface/VoxTell-Interface.sln` in Visual Studio.
+```
+msbuild VoxTell-Interface.sln /p:Configuration=Release /p:Platform=x64 /p:VarianApiDir="D:\Varian\RTM\16.1\esapi\API"
+```
 
-### 4. Build
+### Testing without Eclipse
 
-- Set configuration to **Release** and platform to **x64**
-- Build the solution (`Ctrl+Shift+B`)
-- The post-build step automatically renames the output to `VoxTell-Interface.esapi.dll`
+The solution also builds `VoxTell-Interface.Harness`, a console app that links the same
+sources minus anything touching `VMS.TPS.Common.Model.*` and drives the whole protocol
+against a synthetic phantom. It needs no patient, no CT and no script approval, so it is the
+fast loop for auth, the wire format and the geometry round trip:
+
+```
+VoxTell-Harness.exe --base https://voxtell.dicomsegvr.com/v1
+VoxTell-Harness.exe --device        # block the loopback ports, forcing the device-code flow
+VoxTell-Harness.exe --api-key vxt_...
+```
+
+A synthetic phantom is not anatomy, so the model will usually segment nothing from it — that
+is a pass, not a failure. What the harness proves is that sign-in, the upload, the job
+lifecycle and the result download all work; it verifies contour geometry only for whatever
+does come back. For a real geometry check use `voxtell-cloud/scripts/e2e_client.py` with
+actual DICOM, or the plugin itself in Eclipse.
 
 ---
 
@@ -96,15 +120,21 @@ Open `voxtell_interface/VoxTell-Interface.sln` in Visual Studio.
 
 1. **Open a patient** in Eclipse with a CT image and an existing structure set
 2. **Launch the plugin** from the scripting menu — the VoxTell AI Segmentation window opens
-3. **Check server health** — Click the health check button to verify the VoxTell Server is reachable
-4. **Start session & upload** — The plugin extracts CT slices from the open image, compresses each slice (gzip + base64), and streams them to the server. A progress bar tracks upload status.
-5. **Enter prompts** — Type anatomical names separated by commas or newlines (e.g. `liver, left kidney, spleen`)
-6. **Run inference** — The plugin submits the prompts to the server and polls for results every 2 seconds
-7. **Import structures** — Once inference completes, contours are automatically imported into Eclipse:
-   - Existing structures are matched by name (exact, case-insensitive, or fuzzy)
-   - Missing structures are auto-created with DICOM type `CONTROL`
-   - Contour points are applied via `AddContourOnImagePlane()` for each z-slice
-8. **Review** — Verify the imported contours in the Eclipse contouring workspace
+3. **Sign in** — the plugin opens your browser at the shared DicomSegVR Keycloak realm and
+   catches the redirect on a loopback port. On a workstation with no free port or no
+   registered browser it falls back to a short code you approve from any device. The session
+   is remembered between runs, so this is normally a one-off.
+4. **Enter prompts** — one anatomical name per line, up to 16
+5. **Segment** — the volume is read, compressed and uploaded once, then the job queues on the
+   shared GPU. The panel shows the queue position, then the server's own progress message,
+   which is what distinguishes "waiting for the GPU" from "stuck".
+6. **Review** — every prompt appears as a row: the structure Id it would write, its DICOM
+   type, the voxel and contour counts, and whether it creates a new structure or overwrites
+   an existing one. Rename, retype, or untick anything.
+7. **Import ticked structures** — only now is anything written. New structures are created;
+   an existing structure has its contours cleared on the affected slices first, so re-running
+   a prompt replaces rather than superimposes.
+8. **Save in Eclipse** — the plugin never saves for you. Nothing is persisted until you do.
 
 ---
 
@@ -116,53 +146,81 @@ classDiagram
         +Execute(ScriptContext, Window)
     }
     class MainViewModel {
-        -VoxTellApiClient _apiClient
-        -EsapiStructureImporter _importer
-        +CheckHealthAsync()
-        +StartSessionAndUploadAsync()
-        +RunInferenceAsync()
-        +ProcessContourResults()
+        +SignInAsync()
+        +RunAsync()
+        +Cancel()
+        +ImportSelected()
+    }
+    class AuthService {
+        +SignInAsync() : PKCE then device code
+        +GetBearerTokenAsync()
+        +TryRenewAfterUnauthorizedAsync()
     }
     class VoxTellApiClient {
-        +CheckHealthAsync()
-        +CreateSessionAsync()
-        +UploadSliceAsync()
-        +FinalizeSessionAsync()
-        +StartInferenceAsync()
-        +GetInferenceStatusAsync()
-        +DeleteSessionAsync()
+        +GetAuthConfigAsync()
+        +GetMeAsync()
+        +CreateJobAsync()
+        +UploadPartsAsync()
+        +SubmitJobAsync()
+        +GetJobAsync()
+        +CancelJobAsync()
+        +GetResultAsync()
     }
     class VoxelEncoder {
-        +ExtractAndEncodeSlice(Image, int)$
+        +BuildVolumeBlob(IVolumeSource, IThreadGate)$
+    }
+    class IVolumeSource {
+        <<interface>>
+        +ReadSlice(int, short[])
+        +ScalingSlope
+        +ScalingIntercept
+    }
+    class EsapiVolumeSource {
+        the only reader of Image.GetVoxels
+    }
+    class IThreadGate {
+        <<interface>>
+        +AssertOnEsapiThread(string)
+        +Run(Action)
     }
     class EsapiStructureImporter {
-        +ValidateStructures()
-        +ProcessResults()
-        -FindStructure()
-        -SanitizeStructureName()
+        +BuildPlan() : no writes
+        +Import() : writes, after review
     }
-    class MainForm {
+    class MainControl {
         -MainViewModel _viewModel
     }
 
-    Script --> MainForm : creates
-    MainForm --> MainViewModel : binds to
-    MainViewModel --> VoxTellApiClient : HTTP calls
-    MainViewModel --> VoxelEncoder : slice encoding
-    MainViewModel --> EsapiStructureImporter : contour import
+    Script --> MainControl : creates
+    MainControl --> MainViewModel : binds to
+    MainViewModel --> AuthService : tokens
+    MainViewModel --> VoxTellApiClient : HTTP
+    MainViewModel --> VoxelEncoder : encode
+    MainViewModel --> EsapiStructureImporter : plan, then import
+    VoxelEncoder --> IVolumeSource : reads slices
+    VoxelEncoder --> IThreadGate : marshals onto the ESAPI thread
+    IVolumeSource <|.. EsapiVolumeSource
+    IThreadGate <|.. EsapiGate
 ```
 
 ### Module Reference
 
-| File | Purpose |
-|---|---|
-| [`Script.cs`](VoxTell-Interface/Script.cs) | ESAPI entry point — initializes write access and launches UI |
-| [`Models/ApiModels.cs`](VoxTell-Interface/Models/ApiModels.cs) | Data transfer objects matching the server's JSON schema |
-| [`Services/VoxTellApiClient.cs`](VoxTell-Interface/Services/VoxTellApiClient.cs) | HTTP client wrapping all REST API calls with error handling |
-| [`Services/VoxelEncoder.cs`](VoxTell-Interface/Services/VoxelEncoder.cs) | Extracts CT voxels from ESAPI, encodes as gzip+base64 |
-| [`Services/EsapiStructureImporter.cs`](VoxTell-Interface/Services/EsapiStructureImporter.cs) | Imports LPS contour points into Eclipse structures (match or auto-create) |
-| [`ViewModels/MainViewModel.cs`](VoxTell-Interface/ViewModels/MainViewModel.cs) | UI logic, async workflow orchestration, progress tracking |
-| [`Views/MainForm.cs`](VoxTell-Interface/Views/MainForm.cs) | WPF user interface (dark theme, embedded in Eclipse window) |
+Only three files touch `VMS.TPS.Common.Model.*`. That is deliberate: it keeps the Eclipse
+surface small enough to review in one sitting, and it lets everything else run in the harness.
+
+| File | Purpose | ESAPI |
+|---|---|---|
+| [`Script.cs`](VoxTell-Interface/Script.cs) | ESAPI entry point — `VMS.TPS.Script`, unlocks write access, hosts the UI | yes |
+| [`Services/EsapiGate.cs`](VoxTell-Interface/Services/EsapiGate.cs) | Marshals work onto the ESAPI thread and asserts when something is on the wrong one | — |
+| [`Services/EsapiVolumeSource.cs`](VoxTell-Interface/Services/EsapiVolumeSource.cs) | The only reader of `Image.GetVoxels` and the image geometry; derives the HU rescale | yes |
+| [`Services/EsapiStructureImporter.cs`](VoxTell-Interface/Services/EsapiStructureImporter.cs) | Plans the import, then writes structures once ticked | yes |
+| [`Services/IVolumeSource.cs`](VoxTell-Interface/Services/IVolumeSource.cs) · [`IThreadGate.cs`](VoxTell-Interface/Services/IThreadGate.cs) | The two seams that keep ESAPI out of everything below | — |
+| [`Services/VoxelEncoder.cs`](VoxTell-Interface/Services/VoxelEncoder.cs) | Builds `gzip(int16-LE, C-order (Z,Y,X))` for the whole volume | — |
+| [`Services/VoxTellApiClient.cs`](VoxTell-Interface/Services/VoxTellApiClient.cs) | The v2 protocol: jobs, presigned multipart upload, polling, results | — |
+| [`Services/Auth/`](VoxTell-Interface/Services/Auth) | PKCE loopback flow, device-code fallback, DPAPI credential store | — |
+| [`Models/ApiModels.cs`](VoxTell-Interface/Models/ApiModels.cs) | Wire DTOs and the typed API error | — |
+| [`ViewModels/MainViewModel.cs`](VoxTell-Interface/ViewModels/MainViewModel.cs) | Workflow orchestration | — |
+| [`Views/MainForm.cs`](VoxTell-Interface/Views/MainForm.cs) | WinForms UI (dark theme), hosted in Eclipse's WPF window via `WindowsFormsHost` | — |
 
 ---
 
@@ -170,17 +228,20 @@ classDiagram
 
 | Setting | Details |
 |---|---|
-| **Server URL** | Default `http://localhost:8000` — configurable in the UI. The server must be reachable from the Eclipse workstation (LAN or localhost). |
-| **HTTP timeout** | 5 minutes — sufficient for large CT uploads and inference. |
-| **Structure names** | Sanitized to 16 characters max, alphanumeric plus `_` and `-`. Prompts like `"left kidney"` become `left_kidney`. |
-| **Write access** | The plugin calls `context.Patient.BeginModifications()` on launch. The ESAPI script must be configured with write permissions in Eclipse. |
-| **Threading** | Voxel extraction runs on the main STA thread (ESAPI requirement). API calls and polling use async/await with `CancellationToken` support. |
+| **Server URL** | Defaults to `https://voxtell.dicomsegvr.com/v1`, overridable under **Server & API key** and remembered per user. |
+| **Credentials** | Keycloak SSO by default; a `vxt_` API key is accepted for unattended workstations. Both are stored under `%LOCALAPPDATA%\VoxTell` encrypted with DPAPI (`CurrentUser` scope), so another account on a shared workstation cannot read them. |
+| **Sign-in** | Authorization Code + PKCE against `http://127.0.0.1:{47653,47654,47655}/callback`. Those ports are registered verbatim on the `voxtell-esapi` Keycloak client — Keycloak's redirect wildcard is path-only, so they cannot be ephemeral and must stay in sync with `OIDC_REDIRECT_PORTS` in the API config. Falls back to the device-code flow. |
+| **HTTP timeouts** | Per call, not one global value: 10 min per 32 MiB upload part, 5 min for a result download, 60 s to create a job, 30 s to poll. Retries 5 times with exponential backoff on 502/503/504 and Cloudflare's 52x/530 — except `POST /jobs`, which is not idempotent. |
+| **Structure names** | Separators become `_`, other invalid characters are dropped, truncated to Eclipse's 16-character limit, then de-duplicated with a numeric suffix. `"left kidney"` becomes `left_kidney`. |
+| **Write access** | `context.Patient.BeginModifications()` on launch, and `[assembly: ESAPIScript(IsWriteable = true)]`. The script must be approved for write operations in your Eclipse configuration. The plugin never calls `SaveModifications` — you save in Eclipse. |
+| **Threading** | `Image.GetVoxels` and every structure write run on the ESAPI thread, enforced by `EsapiGate.AssertOnEsapiThread` rather than assumed. Compression and HTTP run off it, which is why the Eclipse UI stays responsive during an upload. |
+| **Limits** | 16 prompts, 200 characters each, checked client-side before the volume is read. 6 outstanding jobs per user; a 429 is a wait, not a failure. |
 
 ---
 
 ## License
 
-The C# source code in this directory is original work and is released under the **Apache 2.0 License** (see [LICENSE](../voxtell-server/LICENSE)), consistent with the upstream VoxTell project.
+The C# source code in this directory is original work and is released under the **Apache 2.0 License** (see [LICENSE](../LICENSE)), consistent with the upstream VoxTell project.
 
 > [!NOTE]
 > The compiled plugin links against Varian proprietary DLLs at build time. These DLLs are subject to Varian's own licensing terms and are not covered by this project's Apache 2.0 license.

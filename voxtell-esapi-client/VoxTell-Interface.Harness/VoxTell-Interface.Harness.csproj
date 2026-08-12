@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Console harness for the VoxTell v2 client.
+
+  Why it exists: the plugin can only be exercised inside Eclipse, with a patient open, a CT
+  loaded and the script approved. That is a slow loop for debugging auth, the wire format or
+  the geometry round trip — and none of those three need Eclipse at all.
+
+  So this project LINKS the same source files (no copies, no second implementation) minus
+  anything that touches VMS.TPS.Common.Model.*, and drives them against a synthetic volume.
+  If the harness passes, the only thing left untested is the ESAPI import itself.
+-->
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <ProjectGuid>{7F2C1E84-3A6D-4B95-9C11-8D5E4A2F6B03}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>VoxTell_Interface.Harness</RootNamespace>
+    <AssemblyName>VoxTell-Harness</AssemblyName>
+    <!-- Same target as the plugin, so a compile error here is a compile error there. -->
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
+    <!--
+      System.Windows.Forms is referenced but no window is created: EsapiGate's constructor
+      takes a Control, and linking the file is cheaper than splitting it. The harness itself
+      uses DirectGate and never constructs an EsapiGate.
+    -->
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      Linked, not copied. <Link> keeps them in a virtual folder so the shared sources are
+      visibly shared and cannot drift from the plugin's copies.
+      NOTE: EsapiGate.cs / EsapiVolumeSource.cs / EsapiStructureImporter.cs / MainViewModel.cs
+      / MainForm.cs / Script.cs are deliberately absent — they need the Varian assemblies.
+    -->
+    <Compile Include="..\VoxTell-Interface\Models\ApiModels.cs">
+      <Link>Shared\ApiModels.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\IVolumeSource.cs">
+      <Link>Shared\IVolumeSource.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\IThreadGate.cs">
+      <Link>Shared\IThreadGate.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\VoxelEncoder.cs">
+      <Link>Shared\VoxelEncoder.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\VoxTellApiClient.cs">
+      <Link>Shared\VoxTellApiClient.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\Auth\Pkce.cs">
+      <Link>Shared\Auth\Pkce.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\Auth\JwtPeek.cs">
+      <Link>Shared\Auth\JwtPeek.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\Auth\LoopbackListener.cs">
+      <Link>Shared\Auth\LoopbackListener.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\Auth\TokenStore.cs">
+      <Link>Shared\Auth\TokenStore.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\Auth\AuthService.cs">
+      <Link>Shared\Auth\AuthService.cs</Link>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="SyntheticVolumeSource.cs" />
+    <Compile Include="AffineCheck.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
