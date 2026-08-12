@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/auth/AuthProvider.tsx","./src/auth/silentRenew.ts","./src/auth/userManager.ts","./src/components/ui.tsx","./src/lib/api.ts","./src/lib/env.ts","./src/pages/Jobs.tsx","./src/pages/Keys.tsx"],"version":"5.9.3"}

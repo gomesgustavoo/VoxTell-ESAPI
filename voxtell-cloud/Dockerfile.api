@@ -1,0 +1,42 @@
+# VoxTell-Cloud control plane.
+# BUILD CONTEXT = voxtell-cloud/
+#   sudo env DOCKER_BUILDKIT=0 docker build -f Dockerfile.api -t voxtell/api:<tag> .
+#   sudo docker save voxtell/api:<tag> | sudo k3s ctr images import -
+# (k3s uses its own containerd, so a docker-built image is invisible to the
+# kubelet until it is imported. Manifests pin imagePullPolicy: IfNotPresent, so
+# BUMP THE TAG on every rebuild or pods silently keep the cached image.)
+#
+# No torch, no CUDA, no model: this tier only validates requests, presigns S3
+# URLs and moves rows. That is what keeps it a couple of hundred megabytes and
+# safe to run at replicas: 2.
+
+FROM python:3.12-slim AS builder
+WORKDIR /build
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements-api.txt \
+    && pip freeze > /venv/requirements.lock
+
+FROM python:3.12-slim
+RUN groupadd -g 10001 voxtell \
+    && useradd -u 10001 -g voxtell -s /usr/sbin/nologin voxtell
+
+COPY --from=builder /venv /venv
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONPATH=/srv \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY api /srv/api
+COPY voxtell_cloud /srv/voxtell_cloud
+
+USER voxtell
+WORKDIR /srv
+EXPOSE 8000
+
+# One worker per replica: the process is async and IO-bound, and horizontal
+# scale is the Deployment's job, not gunicorn's.
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]

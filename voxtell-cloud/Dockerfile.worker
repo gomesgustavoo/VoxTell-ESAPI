@@ -1,0 +1,72 @@
+# VoxTell-Cloud GPU worker.
+# BUILD CONTEXT = voxtell-cloud/
+#   sudo env DOCKER_BUILDKIT=0 docker build -f Dockerfile.worker -t voxtell/worker:<tag> .
+#   sudo docker save voxtell/worker:<tag> | sudo k3s ctr images import -
+# (DOCKER_BUILDKIT=0 is required on this host: docker 29 here ships without the
+# buildx component, so BuildKit fails outright. The save|import of this image
+# streams several gigabytes and takes a few minutes.)
+#
+# No CUDA base image: torch's cu126 wheels carry the CUDA runtime, and the host
+# driver's libcuda is injected at runtime by nvidia-container-toolkit. That is
+# ~4 GB smaller than starting from nvidia/cuda.
+#
+# Model weights are NOT baked in. voxtell_v1.1 plus the Qwen3 text backbone and
+# the published embedding bank live on a hostPath model store mounted read-only
+# at /models (populate it with scripts/fetch_models.py), so swapping model
+# versions is a file copy rather than a 10 GB image rebuild.
+
+FROM python:3.12-slim AS builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN pip install --no-cache-dir --upgrade pip
+
+# torch first, from the CUDA index, as its own layer: it is by far the largest
+# and slowest dependency, and pinning it here stops the resolver from pulling a
+# different build later. 2.8.0 is deliberate — PyTorch 2.9.0 OOMs on the 3D
+# convolutions VoxTell uses (pytorch/pytorch#166122).
+RUN pip install --no-cache-dir torch==2.8.0 --index-url https://download.pytorch.org/whl/cu126
+
+COPY requirements-worker.txt .
+RUN pip install --no-cache-dir -r requirements-worker.txt \
+    && pip freeze > /venv/requirements.lock
+
+FROM python:3.12-slim
+# Runtime shared libraries for SimpleITK / skimage / OpenCV-style wheels.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -g 10001 voxtell \
+    && useradd -u 10001 -g voxtell -s /usr/sbin/nologin voxtell
+
+COPY --from=builder /venv /venv
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONPATH=/srv \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    # Keeps fragmentation down across repeated sliding-window allocations.
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    # Non-root with no writable $HOME; both caches land in the scratch emptyDir.
+    HOME=/tmp \
+    HF_HOME=/models/hf \
+    WORKER_SCRATCH_DIR=/tmp/voxtell
+
+COPY worker /srv/worker
+COPY voxtell_cloud /srv/voxtell_cloud
+
+RUN mkdir -p /models /tmp/voxtell && chown -R voxtell:voxtell /tmp/voxtell
+
+# Fail the BUILD, not the pod, on a missing dependency. Importing these modules
+# exercises every third-party import outside the lazily-loaded ML stack — which
+# is exactly how pydantic-settings went missing once and only surfaced as a
+# CrashLoopBackOff after a 30-minute image import. worker.engine imports torch and
+# voxtell lazily inside its functions, so this stays a fast, GPU-free check.
+RUN python -c "import worker.main, worker.engine, worker.stages, worker.job, \
+voxtell_cloud.contours, voxtell_cloud.geometry, voxtell_cloud.wire; \
+print('worker imports OK')"
+
+USER voxtell
+WORKDIR /srv
+CMD ["python", "-m", "worker.main"]

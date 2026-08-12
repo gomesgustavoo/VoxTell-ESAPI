@@ -1,0 +1,111 @@
+# Single-machine VoxTell-Cloud, for sites that cannot use the hosted service.
+#
+# Same images and the same protocol as the Kubernetes deployment, minus Keycloak:
+# with OIDC_ISSUER unset the API accepts API keys only, which is what a single
+# department behind a hospital firewall actually wants.
+#
+#   1. fetch the weights once:
+#        python scripts/fetch_models.py --dest ./models
+#   2. docker compose up -d
+#   3. mint a key:
+#        docker compose exec api python -m scripts.mint_key --name local
+#   4. point the Eclipse plugin at http://<this-host>:8000/v1
+#
+# Requires the NVIDIA container toolkit on the host for the worker.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: voxtell
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-voxtell}
+      POSTGRES_DB: voxtell
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voxtell"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Stands in for SeaweedFS. Same S3 API, same presigned multipart flow.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-voxtell}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-voxtell-secret}
+    ports:
+      # Published because the client PUTs volume parts straight here — presigned
+      # URLs are signed against this host:port and must be reachable from Eclipse.
+      - "9000:9000"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-voxtell} ${S3_SECRET_KEY:-voxtell-secret} &&
+      mc mb --ignore-existing local/voxtell"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-voxtell}
+      # Presigned URLs are signed against the Host the client will use. Override
+      # S3_ENDPOINT_PUBLIC with this machine's LAN address before Eclipse can
+      # reach it from another workstation.
+      S3_ENDPOINT_PUBLIC: ${S3_ENDPOINT_PUBLIC:-http://localhost:9000}
+      S3_ENDPOINT_INTERNAL: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-voxtell}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-voxtell-secret}
+      S3_BUCKET: voxtell
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-voxtell}
+      S3_ENDPOINT_INTERNAL: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-voxtell}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-voxtell-secret}
+      S3_BUCKET: voxtell
+      # Single-tenant GPU here, so no cross-service mutex is needed.
+      GPU_LOCK_DSN: ""
+      HF_HOME: /models/hf
+    volumes:
+      - ./models:/models:ro
+    shm_size: "2gb"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  pgdata:
+  miniodata:

@@ -1,0 +1,33 @@
+# GPU worker image.
+#
+# torch is installed separately from the CUDA index in Dockerfile.worker (this
+# file must stay index-agnostic so `pip install -r` works locally on CPU too).
+#
+# torch is pinned to 2.8.0 on upstream's advice: PyTorch 2.9.0 OOMs on the 3D
+# convolutions VoxTell uses (pytorch/pytorch#166122). Do not bump past 2.8.x
+# until that issue closes.
+#
+# voxtell[server] rather than plain voxtell: we import
+# voxtell.server.runner.RemoteInferenceEngine, and importing it executes
+# voxtell/server/__init__.py, which pulls in fastapi + blosc2.
+voxtell[server] @ git+https://github.com/MIC-DKFZ/VoxTell@1a810d6afe3dea68f208abc00cdf1fac1dda6b20
+
+# Shared voxtell_cloud deps (the package is COPYed in, not pip-installed).
+nibabel
+scikit-image>=0.21
+
+# Settings are loaded with pydantic-settings, matching the API and the DicomSegVR
+# worker. voxtell[server] pulls pydantic in transitively via fastapi but NOT
+# pydantic-settings, so it has to be named here explicitly.
+pydantic-settings>=2,<3
+
+# Queue + object store.
+sqlalchemy>=2,<3
+psycopg[binary]>=3.1
+boto3>=1.34
+
+# Prometheus exposition on the worker's own port. Kubernetes SD scrapes the pod IP,
+# so this needs no Service. NOTE: the liveness probe must stay the /tmp/alive
+# touch-file — start_http_server's thread answers happily while the event loop is
+# dead, which is exactly the wrong property. See worker/metrics.py.
+prometheus-client>=0.20

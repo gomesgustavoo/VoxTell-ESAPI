@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* A restrained instrument-panel palette: near-black ground, one cool accent for
+   anything interactive, and semantic colours reserved for job state. Deliberately
+   distinct from DicomSegVR's rose landing and cyan dashboard so the two products
+   are not mistaken for one another at a glance. */
+@theme {
+  --color-ground: #0a0d12;
+  --color-surface: #12171f;
+  --color-surface-2: #1a212b;
+  --color-border: #263040;
+  --color-ink: #e8edf5;
+  --color-muted: #8c9ab0;
+  --color-accent: #3ddc97;
+  --color-accent-ink: #04150e;
+  --color-danger: #ff6b6b;
+  --color-warn: #ffb454;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A single faint field gradient so the page is not a flat black rectangle. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(61 220 151 / 0.06), transparent 60%),
+    radial-gradient(50rem 35rem at 95% 0%, rgb(80 140 255 / 0.05), transparent 60%);
+}
+
+code,
+.mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}

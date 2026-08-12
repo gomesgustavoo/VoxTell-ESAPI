@@ -1,0 +1,76 @@
+[project]
+name = "voxtell-cloud"
+version = "0.1.0"
+requires-python = ">=3.11"
+description = "Multi-user, queue-backed cloud backend for VoxTell segmentation from Varian Eclipse (ESAPI)"
+readme = "README.md"
+license = { file = "../LICENSE" }
+authors = [{ name = "Gustavo Gomes" }]
+
+# Only what the shared voxtell_cloud package itself needs. The two deployables
+# pull requirements-api.txt / requirements-worker.txt on top of this.
+dependencies = [
+    "numpy>=1.24",
+    "nibabel",
+    "scikit-image>=0.21",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2,<3",
+    "sqlalchemy[asyncio]>=2,<3",
+    "asyncpg>=0.29",
+    "boto3>=1.34",
+    "pyjwt[crypto]>=2.8",
+    "httpx>=0.27",
+]
+worker = [
+    # Upstream VoxTell, pinned to a reviewed commit. The [server] extra is what
+    # brings in voxtell.server.runner.RemoteInferenceEngine (prompt batching with
+    # OOM fallbacks) -- importing that module pulls voxtell.server.__init__, which
+    # needs fastapi + blosc2, hence the extra rather than the bare package.
+    "voxtell[server] @ git+https://github.com/MIC-DKFZ/VoxTell@1a810d6afe3dea68f208abc00cdf1fac1dda6b20",
+    "torch==2.8.0",
+    "boto3>=1.34",
+    "sqlalchemy>=2,<3",
+    "psycopg[binary]>=3.1",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "pytest-asyncio>=0.23",
+    # The queue SQL under test is the WORKER's, so it must run through the driver
+    # the worker ships with (psycopg), not the API's asyncpg.
+    "psycopg[binary]>=3.1",
+    "prometheus-client>=0.20",
+]
+
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["voxtell_cloud*", "api*", "worker*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# One event loop for the whole session. pytest-asyncio 1.x defaults to a fresh loop
+# per test, which is fatal here: the async engine is session-scoped, so its asyncpg
+# connections would belong to a loop that has already closed and every query fails
+# with "attached to a different loop". Both knobs are needed — the fixture one for
+# the engine, the test one for the coroutines that use it.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    # Needs a real Postgres, via VOXTELL_TEST_DATABASE_URL. `pytest -m "not pg"`
+    # must always work with no database at all — the pure-unit suite predates the
+    # harness and must not acquire a dependency on it.
+    "pg: requires a Postgres database (see tests/conftest.py)",
+]
+
+[tool.ruff]
+line-length = 100

@@ -1,0 +1,21 @@
+# Control-plane image. Deliberately torch-free: the API never touches the GPU,
+# so it stays a small image that can scale to 2+ replicas.
+#
+# Constraints are lower bounds; the exact resolved set is captured in
+# requirements-api.lock.txt at build time (see Dockerfile.api).
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30
+pydantic>=2.8,<3
+pydantic-settings>=2,<3
+sqlalchemy[asyncio]>=2,<3
+asyncpg>=0.29
+boto3>=1.34
+pyjwt[crypto]>=2.8
+httpx>=0.27
+# voxtell_cloud.geometry.build_affine_lps only; nibabel/skimage stay worker-side.
+numpy>=1.24
+# Prometheus exposition for /v1/metrics. Deliberately the bare client rather than
+# prometheus-fastapi-instrumentator: the instrumentation is ~20 lines of middleware,
+# and the library's default labelling would put concrete paths (/v1/jobs/<uuid>) into
+# a label, which is unbounded cardinality. See api/main.py.
+prometheus-client>=0.20

@@ -1,0 +1,30 @@
+# VoxTell-Cloud console SPA.
+# BUILD CONTEXT = voxtell-cloud/console/
+#   sudo env DOCKER_BUILDKIT=0 docker build -f ../Dockerfile.console -t voxtell/console:<tag> .
+# ...or from voxtell-cloud/:
+#   sudo env DOCKER_BUILDKIT=0 docker build -f Dockerfile.console -t voxtell/console:<tag> console
+#   sudo docker save voxtell/console:<tag> | sudo k3s ctr images import -
+
+FROM node:22-alpine AS build
+WORKDIR /app
+# npm ci needs a lockfile; fall back to install so a fresh checkout still builds.
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY . .
+
+# Public build-time config, baked into the bundle. VITE_API_BASE is deliberately
+# left empty: the console and the API share one hostname (path-split at the
+# Ingress), so the SPA derives it from window.location.origin + /v1 and the same
+# image works on any hostname.
+ARG VITE_AUTH_AUTHORITY=https://auth.dicomsegvr.com/realms/dicomsegvr
+ARG VITE_KC_CLIENT_ID=voxtell-console
+ENV VITE_AUTH_AUTHORITY=$VITE_AUTH_AUTHORITY \
+    VITE_KC_CLIENT_ID=$VITE_KC_CLIENT_ID
+RUN npm run build
+
+FROM nginx:1.27-alpine AS serve
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 8080
+USER 101
+CMD ["nginx", "-g", "daemon off;"]
