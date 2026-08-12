@@ -5,3 +5,22 @@ __pycache__/
 *.pyc
 *.pth
 *.env
+
+# MSBuild output. These were committed before, which shipped a .pdb and leaked the original
+# build machine's paths and username through obj/**/*.cache.
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# Python venvs used for the backend
+.venv*/
+.pytest_cache/
+.ruff_cache/
+
+# Console SPA. node_modules is 2888 files / 115 MB and is fully reproducible from
+# package-lock.json, which IS committed. dist/ is build output — the Dockerfile builds
+# it, so a committed copy only ever goes stale and hides a mismatch between the source
+# and the image someone actually deployed.
+node_modules/
+voxtell-cloud/console/dist/
