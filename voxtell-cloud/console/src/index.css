@@ -1,47 +1,124 @@
 @import "tailwindcss";
+/* The design system, generated from design/tokens.css by design/sync-tokens.py.
+   It carries the @font-face rules, the @theme block Tailwind builds utilities
+   from, and the handful of values (gradients, maxw) Tailwind has no namespace
+   for. This import is what stopped the console being a fourth palette: it used
+   to hand-maintain its own @theme block with a mint #3ddc97 accent and ten
+   colours whose ground/surface/border hexes all differed from the design
+   tokens by a few points, while the generated file sat here unimported. */
+@import "./tokens.generated.css";
 
-/* A restrained instrument-panel palette: near-black ground, one cool accent for
-   anything interactive, and semantic colours reserved for job state. Deliberately
-   distinct from DicomSegVR's rose landing and cyan dashboard so the two products
-   are not mistaken for one another at a glance. */
-@theme {
-  --color-ground: #0a0d12;
-  --color-surface: #12171f;
-  --color-surface-2: #1a212b;
-  --color-border: #263040;
-  --color-ink: #e8edf5;
-  --color-muted: #8c9ab0;
-  --color-accent: #3ddc97;
-  --color-accent-ink: #04150e;
-  --color-danger: #ff6b6b;
-  --color-warn: #ffb454;
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  ::selection {
+    background-color: rgba(34, 211, 238, 0.25);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-2) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface-2);
+    border-radius: 8px;
+  }
+
+  /* Every number in this app is a measurement in a column — quota counts, GPU
+     seconds, volumes, dates. Tabular figures stop them jittering as they poll. */
+  .mono,
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+  }
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
+@layer utilities {
+  .shadow-accent {
+    box-shadow: var(--shadow-accent);
+  }
+  .shadow-panel {
+    box-shadow: var(--shadow-panel);
+  }
 
-body {
-  background: var(--color-ground);
-  color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
+  /* The brand ramp. A gradient cannot live in Tailwind's colour namespace —
+     `background-color: linear-gradient(...)` is invalid — so it is a plain
+     custom property plus these two hand-written classes, exactly as
+     dicomsegvr/dashboard/src/index.css does. */
+  .bg-grad-brand {
+    background-image: var(--vx-grad-brand);
+  }
 
-/* A single faint field gradient so the page is not a flat black rectangle. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(60rem 40rem at 15% -10%, rgb(61 220 151 / 0.06), transparent 60%),
-    radial-gradient(50rem 35rem at 95% 0%, rgb(80 140 255 / 0.05), transparent 60%);
-}
+  /* Solid-colour fallback first, so a browser without background-clip:text
+     shows cyan text rather than transparent nothing. */
+  .text-grad {
+    color: var(--color-accent);
+  }
+  @supports (-webkit-background-clip: text) or (background-clip: text) {
+    .text-grad {
+      background: var(--vx-grad-brand);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
 
-code,
-.mono {
-  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  .glass {
+    background: var(--color-glass-bg);
+    border-color: var(--color-glass-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: var(--color-surface);
+    }
+  }
+
+  /* The ambient field, so the page is not a flat black rectangle. Fixed rather
+     than scrolling, and pointer-events:none so it never eats a click. */
+  .bg-mesh {
+    background-image: var(--vx-grad-mesh);
+  }
+
+  /* Section eyebrow tick — the 22px accent rule DicomSegVR puts before every
+     eyebrow. Here as a utility because it appears in SectionHeader, the sidebar
+     active marker and the empty states. */
+  .tick::before {
+    content: "";
+    display: inline-block;
+    width: 22px;
+    height: 1px;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+    background: var(--color-accent);
+    opacity: 0.85;
+  }
 }

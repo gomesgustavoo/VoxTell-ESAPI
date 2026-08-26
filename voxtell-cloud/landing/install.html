@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install VoxTell in Eclipse — VoxTell</title>
+<meta name="description" content="How to install the VoxTell ESAPI plugin in Varian Eclipse: where the DLLs go, how script approval works, and the two hostnames your firewall must allow.">
+<link rel="canonical" href="https://voxtell.dicomsegvr.com/install.html">
+<meta name="theme-color" content="#0a0e13">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/tokens.v2.css">
+<link rel="stylesheet" href="/assets/styles.v2.css">
+<script>document.documentElement.classList.remove("no-js");</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <div class="container nav__inner">
+    <a class="wordmark" href="/">Vox<em class="text-grad">Tell</em></a>
+    <nav class="nav__menu" id="navMenu" style="position:static;max-height:none;visibility:visible;flex-direction:row;background:none;border:none;padding:0">
+      <a href="/#how-it-works">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <span class="nav__actions"><a class="btn btn--ghost" href="/dashboard/">Dashboard</a></span>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="legal">
+  <div class="container container--prose">
+    <a class="legal__back" href="/">&larr; Back to home</a>
+    <h1>Install VoxTell in Eclipse</h1>
+    <p class="legal__meta">For Eclipse administrators and medical physicists · RTM 16.1 · .NET Framework 4.6.2</p>
+
+    <p>
+      VoxTell is an ESAPI script — two managed DLLs on your published-scripts share.
+      There is nothing to install on a server and no database to provision. The whole
+      procedure is a file copy and a script approval, and the order below matters.
+    </p>
+
+    <!-- Version and hash are the same pair Eclipse keys approval on, so they are stated
+         together and nowhere else on the site. download/releases.json is the machine-
+         readable copy; both are updated by the same publish step. -->
+    <div class="notice" id="release">
+      <strong>No published build yet.</strong> The 2.0.2.0 release is being prepared.
+      Until it is signed and its SHA&#8209;256 recorded, this page deliberately does not
+      offer a download — Eclipse approves a script by <em>version and content hash</em>,
+      and handing a site bytes whose hash is not published is how a clinic ends up
+      trusting a binary nobody can verify.
+      <a href="mailto:gustavo.formento@rtmedical.com.br">Ask us for the current build</a>
+      if you need it now.
+    </div>
+
+    <h2>1. Get the files</h2>
+    <p>
+      A release is a single zip containing exactly two files — the VoxTell interface
+      assembly and <code>Newtonsoft.Json.dll</code>. It contains no Varian assemblies
+      (they are not redistributable), no <code>.pdb</code>, and no XML doc files.
+    </p>
+
+    <h2>2. Verify what you were given</h2>
+    <p>
+      Before copying anything to a clinical share, confirm the bytes match the published
+      hash. In PowerShell on the workstation:
+    </p>
+    <pre class="code">Get-FileHash .\VoxTell-Interface.zip -Algorithm SHA256</pre>
+    <p>
+      Compare the result to the value published on this page and in
+      <a href="/download/releases.json">releases.json</a>. If they differ, stop — do not
+      approve it.
+    </p>
+
+    <h2>3. Copy both DLLs to the published-scripts share</h2>
+    <pre class="code">\\&lt;your-VA_DATA-server&gt;\VA_DATA$\ProgramData\Vision\PublishedScripts\</pre>
+    <p>
+      Both files go in that directory. <code>Newtonsoft.Json.dll</code> is not optional:
+      the plugin fails to load without it, and the error Eclipse shows names the assembly
+      rather than the cause.
+    </p>
+
+    <h2>4. Approve the script — read this part twice</h2>
+    <ol class="steps steps--warn">
+      <li>
+        <h3>Approval is per version <em>and</em> per content hash</h3>
+        <p>
+          Eclipse records both. Any rebuild — even a one-character change — produces
+          different bytes and must be re-approved on every workstation. There is no way
+          to inherit approval across builds.
+        </p>
+      </li>
+      <li>
+        <h3>Never ship a hotfix under an existing version number</h3>
+        <p>
+          If the <code>AssemblyVersion</code> stays the same while the bytes change,
+          Eclipse rejects the script outright with <em>"the script has been modifed"</em>
+          (sic). Every published build gets a new version.
+        </p>
+      </li>
+      <li>
+        <h3>Approve for <b>write</b> access</h3>
+        <p>
+          Read-only approval loads the panel and lets you sign in, then fails when it
+          tries to create structures. The plugin needs write approval to add anything to
+          a structure set.
+        </p>
+      </li>
+      <li>
+        <h3>The plugin never saves — you do</h3>
+        <p>
+          VoxTell opens a modification session and writes structures into the open plan.
+          It does not call save. Nothing reaches the patient record until you save in
+          Eclipse, and discarding the session discards every contour it added.
+        </p>
+      </li>
+    </ol>
+
+    <h2>5. Allow outbound HTTPS to both hostnames</h2>
+    <ul>
+      <li><code>voxtell.dicomsegvr.com</code> — sign-in, job control, results</li>
+      <li><code>s3.dicomsegvr.com</code> — the image upload itself</li>
+    </ul>
+    <p>
+      <strong>A firewall that allows only the first is the most common failure.</strong>
+      Sign-in succeeds, the job is created, and then the upload hangs with no useful
+      error, because the voxel data goes straight to object storage rather than through
+      the API.
+    </p>
+
+    <h2>6. Sign in</h2>
+    <p>
+      Two options, and either works: sign in from the plugin itself — it opens your
+      browser and listens on loopback ports 47653&#8211;47655, falling back to a device
+      code if those are blocked — or paste a workstation key created in the
+      <a href="/dashboard/">dashboard</a>. Mint one key per workstation so a single
+      machine can be revoked without disturbing the others.
+    </p>
+
+    <h2>7. If a hostname will not resolve</h2>
+    <p>
+      Windows caches negative DNS answers for about 15 minutes, so a lookup that failed
+      once keeps failing even after the firewall is opened. Flush it:
+    </p>
+    <pre class="code">ipconfig /flushdns</pre>
+    <p>
+      This is the fix behind the plugin's own "could not resolve host" message, and it is
+      worth trying before investigating anything else.
+    </p>
+
+    <h2>What to expect the first time</h2>
+    <p>
+      Open a plan, launch VoxTell, type a structure name, and submit. The image series
+      uploads once; every further prompt on the same series moves no image data at all.
+      A typical structure set comes back in seconds to a couple of minutes depending on
+      queue depth, and the contours appear in the open plan ready for review.
+    </p>
+
+    <p class="footer__legal" style="margin-top:2.5rem">
+      VoxTell is for research and treatment-planning support. It is <strong>not a medical
+      device</strong> and no regulatory clearance is claimed. Always review contours
+      before clinical use. Varian, Eclipse and ESAPI are trademarks of Varian Medical
+      Systems; VoxTell is not affiliated with or endorsed by Varian.
+    </p>
+  </div>
+</main>
+
+<script src="/assets/main.v2.js" defer></script>
+</body>
+</html>

@@ -1,9 +1,15 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0a0e13" />
+    <!-- The landing page's mark, reached across the path split — same origin, already
+         served, so it costs nothing extra. Declaring it also stops the browser's
+         implicit request for /favicon.ico, which the landing service answers with a
+         404 because it ships an SVG. -->
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <title>VoxTell Cloud</title>
   </head>
   <body>

@@ -1,0 +1,5 @@
+{
+  "latest": null,
+  "note": "No published build yet. VoxTell-Interface.zip is uploaded here out of band; Eclipse approves by version AND content hash, so a build is only published once its sha256 is recorded below.",
+  "releases": []
+}

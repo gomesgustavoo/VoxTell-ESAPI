@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms of service — VoxTell</title>
+<meta name="description" content="The terms covering use of the VoxTell organ segmentation service, including plans, trials and billing.">
+<link rel="canonical" href="https://voxtell.dicomsegvr.com/terms.html">
+<meta name="theme-color" content="#0a0e13">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/tokens.v2.css">
+<link rel="stylesheet" href="/assets/styles.v2.css">
+<script>document.documentElement.classList.remove("no-js");</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="nav" id="top">
+  <div class="container nav__inner">
+    <a class="wordmark" href="/">Vox<em class="text-grad">Tell</em></a>
+    <nav class="nav__menu" style="position:static;max-height:none;visibility:visible;flex-direction:row;background:none;border:none;padding:0">
+      <a href="/#pricing">Pricing</a>
+      <a href="/install.html">Install</a>
+      <span class="nav__actions"><a class="btn btn--ghost" href="/dashboard/">Dashboard</a></span>
+    </nav>
+  </div>
+</header>
+<main id="main" class="legal">
+  <div class="container container--prose">
+    <a class="legal__back" href="/">&larr; Back to home</a>
+    <h1>Terms of service</h1>
+    <p class="legal__meta">Last updated: 12 August 2026 · © 2026 RT Medical</p>
+    <h2>1. What this service is</h2>
+    <p>
+      VoxTell is a text-prompted organ segmentation service for radiotherapy planning. It
+      proposes contours. It is <strong>not a medical device</strong>, it has no regulatory
+      clearance, and it must not be used as the sole basis for a clinical decision.
+    </p>
+
+    <h2>2. Your responsibility</h2>
+    <p>
+      You are the clinician. Every structure the service produces must be reviewed by a
+      qualified professional before it is used for treatment planning or delivery. You are
+      responsible for the clinical acceptability of every contour and for compliance with
+      the rules that govern your practice.
+    </p>
+
+    <h2>3. Acceptable use</h2>
+    <ul>
+      <li>One account per organisation; mint a separate key per workstation.</li>
+      <li>Do not share credentials outside your organisation or resell access.</li>
+      <li>Do not attempt to extract model weights, and do not use the service to build a competing model.</li>
+      <li>Do not upload data you are not entitled to process.</li>
+    </ul>
+
+    <h2>4. Plans, trials and billing</h2>
+    <ul>
+      <li>Every new account gets a <b>14-day trial</b>. It is free, needs no card, and simply stops allowing new segmentations when it ends. Nothing is deleted because a trial lapsed.</li>
+      <li>Paid plans are monthly, in USD, and cancel at the end of the period you already paid for. There are no refunds for partial months.</li>
+      <li>A <b>job</b> is one image series with up to 16 structures. Quotas count <em>submissions</em> within a calendar month and reset on the 1st. Cancelling a job does not refund its quota, because the GPU time was already committed.</li>
+      <li>Every plan includes access to DicomSegVR at the matching tier, for as long as the VoxTell subscription is active.</li>
+      <li>Card processing is handled by Stripe. Prices may change with at least 30 days' notice, and never mid-period.</li>
+    </ul>
+
+    <h2>5. Availability</h2>
+    <p>
+      The service runs on a single GPU shared across a fair-share queue. We do not offer
+      an uptime SLA on any plan. Higher tiers get priority queue placement and more
+      concurrency, not a guarantee. Plan your clinical workflow so that a queue delay or
+      an outage is an inconvenience rather than a problem.
+    </p>
+
+    <h2>6. Data</h2>
+    <p>
+      Handling of uploads, retention windows and deletion is described in the
+      <a href="/privacy.html">privacy policy</a>, which forms part of these terms.
+    </p>
+
+    <h2>7. Third-party components</h2>
+    <p>
+      Segmentation uses the VoxTell model by MIC, DKFZ Heidelberg (Rokuss, M. et al.,
+      CVPR 2026, <a href="https://arxiv.org/abs/2511.11450">arXiv:2511.11450</a>). This
+      service is an independent extension and is not endorsed by DKFZ. Varian, Eclipse
+      and ESAPI are trademarks of Varian Medical Systems; we are not affiliated with or
+      endorsed by Varian.
+    </p>
+
+    <h2>8. Warranty and liability</h2>
+    <p>
+      The service is provided "as is", without warranty of any kind. To the maximum extent
+      permitted by law, our aggregate liability is limited to the fees you paid in the
+      three months before the claim. Nothing here limits liability that cannot lawfully be
+      limited.
+    </p>
+
+    <h2>9. Termination</h2>
+    <p>
+      You may stop at any time from the dashboard. We may suspend an account for
+      non-payment or for a breach of section 3, and will tell you why.
+    </p>
+
+    <h2>10. Changes</h2>
+    <p>
+      We will post changes here and update the date above. Material changes to billing get
+      at least 30 days' notice.
+    </p>
+
+    <h2>11. Governing law</h2>
+    <p>These terms are governed by the laws of Brazil.</p>
+
+    <h2>12. Contact</h2>
+    <p><a href="mailto:gustavo.formento@rtmedical.com.br">gustavo.formento@rtmedical.com.br</a></p>
+    <p class="footer__legal" style="margin-top:2.5rem">
+      <strong>Template — review with counsel.</strong> This document is a good-faith
+      placeholder written to describe what the service actually does. It has not been
+      reviewed by a lawyer and is not legal advice.
+    </p>
+  </div>
+</main>
+<script src="/assets/main.v2.js" defer></script>
+</body>
+</html>

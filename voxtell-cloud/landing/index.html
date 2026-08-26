@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoxTell — free-text organ segmentation for Varian Eclipse</title>
+<meta name="description" content="Name a structure the way you say it out loud and VoxTell writes the contours straight into the open plan in Varian Eclipse. 14,194 bundled phrasings across CT, MR and PET.">
+<meta name="theme-color" content="#0a0e13">
+<link rel="canonical" href="https://voxtell.dicomsegvr.com/">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://voxtell.dicomsegvr.com/">
+<meta property="og:title" content="VoxTell — type the structure, get the contour">
+<meta property="og:description" content="A free-text segmentation server for Varian Eclipse. 14,194 bundled phrasings across CT, MR and PET; contours land in the open plan.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Only the sans is preloaded. The mono is used for labels and numbers that are
+     never above the fold's first paint, so preloading both just competes for
+     bandwidth with the hero slice. -->
+<link rel="preload" href="/assets/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/hero-slice.v2.webp" as="image" type="image/webp">
+
+<link rel="stylesheet" href="/assets/tokens.v2.css">
+<link rel="stylesheet" href="/assets/styles.v2.css">
+
+<script>document.documentElement.classList.remove("no-js");</script>
+
+<!-- The three offers duplicate the price and quota strings in the cards below.
+     tests/test_landing_prices.py pins both copies to one Python dict, so they
+     cannot drift the way DicomSegVR's three copies did. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "VoxTell",
+  "applicationCategory": "MedicalApplication",
+  "operatingSystem": "Windows",
+  "description": "Free-text promptable organ segmentation for Varian Eclipse. Contours are written into the open plan's structure set through ESAPI.",
+  "url": "https://voxtell.dicomsegvr.com/",
+  "publisher": { "@type": "Organization", "name": "RT Medical" },
+  "offers": [
+    { "@type": "Offer", "name": "Explorer", "price": "12.99", "priceCurrency": "USD",
+      "description": "60 jobs a month, 2 workstation keys. Includes DicomSegVR Explorer. 14-day free trial, no card." },
+    { "@type": "Offer", "name": "Pro", "price": "49.99", "priceCurrency": "USD",
+      "description": "250 jobs a month, priority queue, 5 workstation keys. Includes DicomSegVR Pro." },
+    { "@type": "Offer", "name": "Enterprise", "price": "199.99", "priceCurrency": "USD",
+      "description": "Unlimited jobs, 2 concurrent segmentations, unlimited keys. Includes DicomSegVR Enterprise." }
+  ]
+}
+</script>
+</head>
+<body id="top">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="nav" id="siteNav">
+  <div class="container nav__inner">
+    <a class="wordmark" href="/">Vox<em class="text-grad">Tell</em></a>
+
+    <button class="nav__toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">
+      <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M1 1h16M1 7h16M1 13h16"/>
+      </svg>
+    </button>
+
+    <nav class="nav__menu" id="navMenu" aria-label="Main">
+      <a href="#vocabulary">Vocabulary</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#safety">Safety</a>
+      <a href="#pricing">Pricing</a>
+      <div class="nav__actions">
+        <a class="btn btn--ghost" href="/dashboard/">Sign in</a>
+        <a class="btn btn--primary" href="/dashboard/">Start free trial</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ==================== hero ==================== -->
+  <section class="hero">
+    <div class="container hero__grid">
+
+      <div>
+        <p class="label">Organ segmentation server</p>
+        <!-- The break is at the sentence, and styles.v2.css sizes this headline so
+             each sentence fits one line at every width down to 360px. -->
+        <h1>Type the structure.<br><span class="text-grad">Get the contour.</span></h1>
+
+        <p class="hero__sub">
+          VoxTell is a free-text segmentation server for Varian Eclipse. Name a structure
+          the way you would say it out loud — <code>r. 11th rib</code>,
+          <code>hepatic parenchyma</code>, <code>the FDG-avid nodule</code> — and the
+          contours are written straight into the open plan's structure set. Nothing to
+          export, nothing to re-import, no vocabulary to learn.
+        </p>
+
+        <p class="hero__rail">
+          <span><b>14,194</b> bundled phrasings</span>
+          <span><b>1K+</b> classes</span>
+          <span>CT · MR · PET</span>
+        </p>
+
+        <p class="hero__cta">
+          <a class="btn btn--primary btn--lg" href="/dashboard/">Start your 14-day trial</a>
+          <a class="btn btn--ghost btn--lg" href="/install.html">Install in Eclipse</a>
+        </p>
+
+        <p class="hero__note">
+          No credit card for 14 days. Every plan also bundles <b>DicomSegVR</b> — 3D and VR
+          review of the same studies — on one subscription.
+        </p>
+      </div>
+
+      <!-- The viewport. Everything in it is real: a public CT, contoured by this
+           service, with the window/level and scale bar taken from the data. -->
+      <div>
+        <div class="demo" id="demoStage">
+          <div class="demo__bar">
+            <span class="demo__caret" aria-hidden="true">&gt;</span>
+            <label class="sr-only" for="demoInput">Name a structure</label>
+            <input class="demo__input" id="demoInput" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="name a structure, however you say it">
+            <span class="demo__hint" id="demoHint" aria-live="polite"></span>
+            <button class="demo__reset" id="demoReset" type="button" hidden>clear</button>
+          </div>
+
+          <div class="demo__chips" id="demoChips"></div>
+
+          <div class="demo__stage">
+            <p class="demo__empty" id="demoEmpty">No structures yet — pick one above.</p>
+          </div>
+
+          <div class="ledger" id="demoLedger"></div>
+          <div class="ledger__foot" id="demoFoot"><span>Structure set</span><span>empty</span></div>
+        </div>
+        <p class="hero__caption" id="demoCaption"></p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== provenance ==================== -->
+  <section class="prov">
+    <div class="container prov__grid">
+      <div class="prov__item reveal">
+        <span class="prov__n" data-count="62" data-suffix="K+">62K+</span>
+        <span class="prov__k">CT, MR and PET volumes trained on</span>
+      </div>
+      <div class="prov__item reveal">
+        <span class="prov__n" data-count="1" data-suffix="K+">1K+</span>
+        <span class="prov__k">anatomical and pathological classes</span>
+      </div>
+      <div class="prov__item reveal">
+        <span class="prov__n" data-count="14194">14,194</span>
+        <span class="prov__k">phrasings in the bundled embedding bank</span>
+      </div>
+      <div class="prov__item reveal">
+        <span class="prov__n">CVPR 2026</span>
+        <span class="prov__k">MIC, DKFZ Heidelberg — arXiv:2511.11450</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== vocabulary ==================== -->
+  <section class="section section--alt" id="vocabulary">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">Vocabulary</span>
+          <span class="metric">14,194 phrasings · 7,137 with laterality</span>
+        </div>
+        <h2>It already knows how you say it.</h2>
+        <p>
+          Most tools hand you a list and ask you to match it. VoxTell was trained on
+          clinical language and ships with an embedding bank of 14,194 phrasings —
+          synonyms, abbreviations, Latin and laterality, written every way a planner
+          writes them. <code>12th right rib</code>, <code>r. eleventh rib</code>,
+          <code>left costa xii</code> and <code>dextral costa 12</code> all resolve to the
+          same structure. Search the real bank:
+        </p>
+      </div>
+
+      <div class="vocab__panel reveal">
+        <div class="vocab__search">
+          <label class="sr-only" for="vocabInput">Search the phrasing bank</label>
+          <input id="vocabInput" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="rib, hepatic, r. kidney, fdg-avid, cornu ammonis…">
+          <span class="vocab__count" id="vocabCount">14,194 phrasings</span>
+        </div>
+        <ul class="vocab__results" id="vocabResults"></ul>
+        <div class="vocab__groups">
+          <p class="vocab__group"><span>Musculoskeletal</span><b>3,078</b></p>
+          <p class="vocab__group"><span>Cardiac &amp; vascular</span><b>2,658</b></p>
+          <p class="vocab__group"><span>Abdomen &amp; pelvis</span><b>1,522</b></p>
+          <p class="vocab__group"><span>Central nervous</span><b>1,492</b></p>
+          <p class="vocab__group"><span>Lesions &amp; tumours</span><b>918</b></p>
+          <p class="vocab__group"><span>Head &amp; neck</span><b>911</b></p>
+          <p class="vocab__group"><span>Thorax &amp; airway</span><b>376</b></p>
+          <p class="vocab__group"><span>Phrases of three words or more</span><b>10,602</b></p>
+        </div>
+      </div>
+
+      <p class="pricing__note reveal">
+        The bank is a warm cache, not a whitelist. A phrase that is not in it still runs —
+        VoxTell reaches state-of-the-art zero-shot performance on unseen datasets and
+        generalises to related unseen classes. Being in the bank only means the phrase
+        skips the text-encoder pass and comes back faster.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== how it works ==================== -->
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">How it works</span>
+          <span class="metric">typical structure set: ~13 s</span>
+        </div>
+        <h2>Four steps, and you never leave Eclipse.</h2>
+        <p>
+          VoxTell installs as an ESAPI script. It reads the image the planner already has
+          open, and it puts the result back where the planner already works.
+        </p>
+      </div>
+
+      <ol class="flow">
+        <li class="flow__step reveal">
+          <span class="flow__n">Step 01</span>
+          <h3>Open the plan</h3>
+          <p>
+            Launch VoxTell from the Eclipse tools menu. It picks up the active image series
+            and its geometry directly — no manual export, no file picker, no filename to
+            get wrong.
+          </p>
+        </li>
+        <li class="flow__step reveal">
+          <span class="flow__n">Step 02</span>
+          <h3>Name the structures</h3>
+          <p>
+            Type up to 16 structures per job, in your own words. The series uploads once;
+            every further prompt on the same image moves no image data at all.
+          </p>
+        </li>
+        <li class="flow__step reveal">
+          <span class="flow__n">Step 03</span>
+          <h3>The server segments</h3>
+          <p>
+            One GPU job per request on a fair-share queue, with your position and estimated
+            wait shown live. Uploads are deleted automatically; results expire in 24 hours.
+          </p>
+        </li>
+        <li class="flow__step flow__step--final reveal">
+          <span class="flow__n">Step 04</span>
+          <h3>Straight into your TPS</h3>
+          <p>
+            Contours are written into the open plan's structure set through ESAPI, ready to
+            review, edit and approve. Nothing to import, and nothing leaves Eclipse for you
+            to reconcile later.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ==================== safety ==================== -->
+  <section class="section section--alt" id="safety">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">Safety &amp; data</span>
+          <span class="metric">results expire in 24 h</span>
+        </div>
+        <h2>It cannot commit anything to a patient on its own.</h2>
+        <p>
+          This tool proposes contours in a plan that a human being will treat from. The
+          limits below are structural, not policy.
+        </p>
+      </div>
+
+      <div class="grid grid--2">
+        <ul class="facts reveal">
+          <li>
+            <b>The plugin never saves.</b>
+            <p>
+              It opens a modification session and writes structures, and that is all. The
+              planner saves in Eclipse, or discards. There is no code path by which VoxTell
+              commits a change to a patient without a deliberate human action.
+            </p>
+          </li>
+          <li>
+            <b>Always review before clinical use.</b>
+            <p>
+              Segmentation output is for research and planning support — always review
+              contours before clinical use.
+            </p>
+          </li>
+          <li>
+            <b>Not a medical device.</b>
+            <p>
+              No regulatory clearance is claimed or implied. You remain responsible for the
+              clinical acceptability of every structure.
+            </p>
+          </li>
+          <li>
+            <b>Model provenance is public.</b>
+            <p>
+              VoxTell model by MIC, DKFZ Heidelberg (arXiv:2511.11450), accepted at
+              CVPR 2026. This service is an independent extension of it.
+            </p>
+          </li>
+        </ul>
+
+        <ul class="facts facts--plain reveal">
+          <li>
+            <b>No DICOM headers leave the workstation.</b>
+            <p>
+              What is uploaded is a gzipped <code>int16</code> voxel array plus a geometry
+              object — spacing, origin and orientation. No patient name, no ID, no dates,
+              no institution.
+            </p>
+          </li>
+          <li>
+            <b>Uploads are deleted on a clock.</b>
+            <p>
+              A series is dropped 120 minutes after its last use and 8 hours after upload,
+              whichever comes first. Results expire 24 hours after the job finishes, and
+              the objects are deleted.
+            </p>
+          </li>
+          <li>
+            <b>Per-account isolation, and deletion on demand.</b>
+            <p>
+              Every query is scoped to your account. You can list everything held for you
+              and delete any of it immediately, from the dashboard or the API.
+            </p>
+          </li>
+          <li>
+            <b>Nothing is used for training.</b>
+            <p>Your images are not retained for model development, ever.</p>
+          </li>
+        </ul>
+      </div>
+
+      <p class="notice reveal">
+        <b>Contours are a starting point.</b> Auto-segmentation shortens the mechanical part
+        of contouring; it does not transfer clinical judgement. Review every structure on
+        every slice that matters to the dose.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== requirements ==================== -->
+  <section class="section" id="requirements">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">Requirements</span>
+          <span class="metric">ESAPI · RTM 16.1 · .NET 4.6.2</span>
+        </div>
+        <h2>What your workstation needs.</h2>
+      </div>
+
+      <div class="grid grid--2">
+        <ul class="facts facts--plain reveal">
+          <li>
+            <b>Varian Eclipse with ESAPI scripting.</b>
+            <p>
+              Built against the RTM 16.1 assemblies and .NET Framework 4.6.2, on Windows.
+              The script must be approved for <b>write</b> access, since writing structures
+              is the whole point.
+            </p>
+          </li>
+          <li>
+            <b>Outbound HTTPS to two hostnames.</b>
+            <p>
+              <code>voxtell.dicomsegvr.com</code> for the API and
+              <code>s3.dicomsegvr.com</code> for the bulk upload. A firewall that allows
+              only the first will sign in successfully and then hang at upload — which is
+              the single most common installation failure.
+            </p>
+          </li>
+        </ul>
+
+        <ul class="facts reveal">
+          <li>
+            <b>An account, and a key per workstation.</b>
+            <p>
+              Sign in from the plugin, or paste a workstation key minted in the dashboard.
+              Keys are shown once and can be revoked individually, so a decommissioned
+              workstation does not take the rest of the clinic with it.
+            </p>
+          </li>
+          <li>
+            <b>No server-side install.</b>
+            <p>
+              Nothing runs in your data centre. Two DLLs go into your published-scripts
+              share and the GPU work happens here.
+            </p>
+          </li>
+        </ul>
+      </div>
+
+      <p class="hero__cta reveal">
+        <a class="btn btn--ghost" href="/install.html">Full installation guide</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== pricing ==================== -->
+  <section class="section section--alt" id="pricing">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">Plans</span>
+          <span class="metric">14-day trial · no card</span>
+        </div>
+        <h2>Simple plans. Start with 14 days free.</h2>
+        <p>
+          A job is one image series with up to 16 structures — for most plans, one or two
+          jobs per patient. Every plan also includes DicomSegVR at the matching tier, on
+          the same subscription.
+        </p>
+      </div>
+
+      <div class="plans">
+
+        <div class="plan reveal">
+          <h3 class="plan__name">Explorer</h3>
+          <p class="plan__price">
+            <span class="plan__amount" data-count="12.99" data-prefix="$" data-decimals="2">$12.99</span>
+            <span class="plan__period">/ month</span>
+          </p>
+          <p class="plan__tagline">One planner, real cases. Everything needed to contour from inside Eclipse.</p>
+          <ul class="plan__features">
+            <li><b>60 jobs</b> a month</li>
+            <li>Up to <b>16 structures</b> per job</li>
+            <li>One segmentation at a time</li>
+            <li><b>2</b> workstation keys</li>
+            <li>CT, MR and PET</li>
+          </ul>
+          <span class="plan__bundle">+ includes <b>DicomSegVR Explorer</b></span>
+          <p class="plan__cta">
+            <a class="btn btn--ghost btn--block" href="/dashboard/">Start 14-day trial</a>
+          </p>
+          <p class="plan__note plan__note--accent">No credit card · cancel anytime</p>
+        </div>
+
+        <div class="plan plan--featured reveal">
+          <span class="plan__pill">Most clinics</span>
+          <h3 class="plan__name">Pro</h3>
+          <p class="plan__price">
+            <span class="plan__amount" data-count="49.99" data-prefix="$" data-decimals="2">$49.99</span>
+            <span class="plan__period">/ month</span>
+          </p>
+          <p class="plan__tagline">A working clinic with more than one planner. More volume, and your jobs go first.</p>
+          <ul class="plan__features">
+            <li>Everything in Explorer</li>
+            <li><b>250 jobs</b> a month</li>
+            <li><b>Priority</b> queue placement</li>
+            <li><b>5</b> workstation keys</li>
+            <li>Priority support</li>
+          </ul>
+          <span class="plan__bundle">+ includes <b>DicomSegVR Pro</b></span>
+          <p class="plan__cta">
+            <a class="btn btn--primary btn--block" href="/dashboard/checkout?plan=clinician">Choose Pro</a>
+          </p>
+          <p class="plan__note">Billed monthly · cancel anytime</p>
+        </div>
+
+        <div class="plan reveal">
+          <h3 class="plan__name">Enterprise</h3>
+          <p class="plan__price">
+            <span class="plan__amount" data-count="199.99" data-prefix="$" data-decimals="2">$199.99</span>
+            <span class="plan__period">/ month</span>
+          </p>
+          <p class="plan__tagline">A department running at volume, with no monthly ceiling to plan around.</p>
+          <ul class="plan__features">
+            <li>Everything in Pro</li>
+            <li><b>Unlimited</b> jobs</li>
+            <li><b>2 concurrent</b> segmentations</li>
+            <li><b>Unlimited</b> workstation keys</li>
+            <li>Top-priority queue · dedicated support</li>
+          </ul>
+          <span class="plan__bundle">+ includes <b>DicomSegVR Enterprise</b></span>
+          <p class="plan__cta">
+            <a class="btn btn--ghost btn--block" href="/dashboard/checkout?plan=enterprise">Choose Enterprise</a>
+          </p>
+          <p class="plan__note">Billed monthly · cancel anytime</p>
+        </div>
+
+      </div>
+
+      <p class="pricing__secure reveal">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+        </svg>
+        <span>Secure checkout powered by <strong>Stripe</strong>. We never see or store your card details — Stripe is a certified PCI&#8209;DSS Level&nbsp;1 provider.</span>
+      </p>
+      <p class="pricing__note reveal">
+        The 14-day trial is free and needs no card; billing starts only when you choose a
+        plan. Prices in USD, billed monthly, cancel anytime. Job quotas count submissions
+        in a calendar month and reset on the 1st — cancelling a running job does not refund
+        it. The bundled DicomSegVR tier is granted on the same account.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== faq ==================== -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-head__rule">
+          <span class="label">Reference</span>
+          <span class="metric">still stuck? write to us</span>
+        </div>
+        <h2>Frequently asked questions</h2>
+      </div>
+
+      <div class="faq">
+        <details class="faq__item reveal">
+          <summary>Does this replace manual contouring?</summary>
+          <p>
+            No, and it is not sold as though it does. It removes the mechanical part —
+            outlining organs you have outlined a thousand times — so the time you spend is
+            spent on judgement: the target, the boundaries that matter to the dose, and the
+            slices where the automatic result is wrong. Every structure arrives unapproved
+            and editable.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>What exactly leaves the workstation?</summary>
+          <p>
+            A gzipped <code>int16</code> voxel array and a geometry object holding spacing,
+            origin and orientation. No DICOM headers, so no patient name, ID, dates or
+            institution. The series is deleted 120 minutes after its last use, or 8 hours
+            after upload, whichever comes first.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>How is a job counted against my quota?</summary>
+          <p>
+            One submission of one image series is one job, whether it asks for one
+            structure or sixteen. Quota counts submissions rather than completions, so a
+            cancelled job is not refunded — that is what stops the queue being farmed. Extra
+            prompts on a series you have already uploaded still count as a job, but move no
+            image data.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>What happens when the trial ends?</summary>
+          <p>
+            Nothing is deleted and nothing is charged. Segmentation stops until you pick a
+            plan, and your keys and history stay exactly as they were. There is no card on
+            file to fail.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>Why is DicomSegVR included?</summary>
+          <p>
+            They are the same company and the same account, and the two halves are useful
+            together: VoxTell writes structures into the plan, DicomSegVR lets you inspect
+            the result in 3D and VR before you approve it. One subscription covers both at
+            the matching tier, so there is nothing extra to buy or to reconcile.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>Can several workstations share one account?</summary>
+          <p>
+            Yes — that is what workstation keys are for. Mint one per machine so you can
+            revoke a single workstation without touching the others. Your plan sets how
+            many keys and how many simultaneous segmentations you get; the monthly quota is
+            shared across all of them.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>Does it work on MR and PET, or only CT?</summary>
+          <p>
+            All three. The model was trained on more than 62,000 CT, MR and PET volumes,
+            and the prompt is text rather than a modality-specific label. CT is the common
+            case in planning; MR and PET work through the same path with no extra setup.
+          </p>
+        </details>
+
+        <details class="faq__item reveal">
+          <summary>What if my structure is not in the bundled bank?</summary>
+          <p>
+            It still runs. The bank of 14,194 phrasings is a cache of pre-computed text
+            embeddings, not a list of permitted structures — an unlisted phrase is encoded
+            on the spot. VoxTell is state-of-the-art zero-shot on unseen datasets and
+            generalises to related unseen classes, so an unusual phrasing is a latency cost,
+            not a refusal.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== final ==================== -->
+  <section class="section">
+    <div class="container">
+      <div class="final reveal">
+        <h2>Contour your next plan in Eclipse.</h2>
+        <p>
+          Fourteen days, no card, and nothing to install on your servers. Copy two DLLs to
+          your published-scripts share and name a structure.
+        </p>
+        <p class="hero__cta">
+          <a class="btn btn--primary btn--lg" href="/dashboard/">Start your 14-day trial</a>
+          <a class="btn btn--ghost btn--lg" href="/install.html">Installation guide</a>
+        </p>
+        <p class="pricing__secure">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+          </svg>
+          <span>Secure checkout by <strong>Stripe</strong> · PCI&#8209;DSS Level&nbsp;1 · <a href="mailto:support@dicomsegvr.com">talk to us first</a></span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer__grid">
+      <div>
+        <a class="wordmark" href="/">Vox<em class="text-grad">Tell</em></a>
+        <p class="footer__tag">
+          Free-text organ segmentation for radiotherapy planning, straight into the open
+          plan in Varian Eclipse.
+        </p>
+        <p class="footer__tag">© 2026 RT Medical</p>
+      </div>
+
+      <div>
+        <h3>Product</h3>
+        <ul>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#vocabulary">Vocabulary</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="/install.html">Install</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Account</h3>
+        <ul>
+          <li><a href="/dashboard/">Dashboard</a></li>
+          <li><a href="/dashboard/">Sign in</a></li>
+          <li><a href="https://dicomsegvr.com/">DicomSegVR</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Legal</h3>
+        <ul>
+          <li><a href="/privacy.html">Privacy</a></li>
+          <li><a href="/terms.html">Terms</a></li>
+          <li><a href="mailto:support@dicomsegvr.com">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer__legal">
+      Segmentation output is for research and planning support — always review contours
+      before clinical use. VoxTell is not a medical device and no regulatory clearance is
+      claimed. Model: <em>VoxTell: Free-Text Promptable Universal 3D Medical Image
+      Segmentation</em>, Rokuss et al., MIC / DKFZ Heidelberg, arXiv:2511.11450, CVPR 2026;
+      this service is an independent extension of it. The hero figure is a public reference
+      CT from the <a href="https://doi.org/10.5281/zenodo.10047292">TotalSegmentator
+      dataset</a> (Wasserthal et al., CC BY 4.0), contoured by this service. Varian and
+      Eclipse are trademarks of Varian Medical Systems, Inc.; RT Medical is not affiliated
+      with or endorsed by Varian.
+    </p>
+  </div>
+</footer>
+
+<script src="/assets/main.v2.js" defer></script>
+<script src="/assets/hero.v2.js" defer></script>
+</body>
+</html>

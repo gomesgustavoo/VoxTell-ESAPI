@@ -478,14 +478,37 @@ class ProgressReporter:
         self._min_delta = min_delta
         self._last_time = 0.0
         self._last_frac = -1.0
+        self._last_message: str | None = None
         self._lease = lease
 
     def __call__(self, frac: float, message: str) -> None:
         if self._lease is not None:
             self._lease.touch()
         now = time.monotonic()
-        if (now - self._last_time) < self._min_interval and (frac - self._last_frac) < self._min_delta:
+        # A CHANGE OF MESSAGE ALWAYS GETS WRITTEN, whatever the throttle says.
+        #
+        # Verified against a live contention test on 2026-08-12: the throttle was
+        # silently eating the single most important message this worker emits.
+        # `process` writes (0.20, "Preparing inference") and then `engine.segment`
+        # immediately calls (0.16, "Waiting for the GPU") when the cross-service GPU
+        # mutex is held. Both throttle conditions were true — the call lands inside the
+        # 2 s window, and the delta is *negative* because 0.16 < 0.20 — so the write was
+        # dropped and a planner queued behind DicomSegVR saw "Preparing inference" sit
+        # motionless for the whole wait, which is exactly the frozen-looking job this
+        # message exists to prevent.
+        #
+        # Keying the bypass on the message is the right shape: the write storm the
+        # throttle defends against is the per-patch callback, which repeats the *same*
+        # message with a rising fraction. Distinct messages are rare and each one is a
+        # state change the user needs to see.
+        throttled = (
+            message == self._last_message
+            and (now - self._last_time) < self._min_interval
+            and (frac - self._last_frac) < self._min_delta
+        )
+        if throttled:
             return
+        self._last_message = message
         self._last_time = now
         self._last_frac = frac
         try:

@@ -1,0 +1,17 @@
+<!-- A contour fragment and a control point — the mark is a piece of the thing the
+     product makes. Colours are the brand ramp; the ground matches --vx-ground so
+     the tile does not glow against a dark browser chrome. Kept unversioned: it is
+     referenced by every page and a stale favicon is a cosmetic cost, not a broken
+     layout, so it is not worth a filename bump. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0a0e13"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 19C10 11 14 8 19 10s7 8 5 13" fill="none" stroke="url(#g)"
+        stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="10.5" cy="23.5" r="2.1" fill="#22d3ee"/>
+</svg>

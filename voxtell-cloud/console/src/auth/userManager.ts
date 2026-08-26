@@ -8,9 +8,9 @@ import { env } from "../lib/env";
 export const oidcSettings: UserManagerSettings = {
   authority: env.authAuthority,
   client_id: env.kcClientId,
-  redirect_uri: `${window.location.origin}/auth/callback`,
-  silent_redirect_uri: `${window.location.origin}/silent-renew.html`,
-  post_logout_redirect_uri: `${window.location.origin}/`,
+  redirect_uri: `${window.location.origin}/dashboard/auth/callback`,
+  silent_redirect_uri: `${window.location.origin}/dashboard/silent-renew.html`,
+  post_logout_redirect_uri: `${window.location.origin}/dashboard/`,
   response_type: "code", // Authorization Code + PKCE (automatic for a public client)
   scope: "openid profile email",
   automaticSilentRenew: true,

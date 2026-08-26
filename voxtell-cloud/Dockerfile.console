@@ -24,7 +24,9 @@ RUN npm run build
 
 FROM nginx:1.27-alpine AS serve
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+# Into html/dashboard/, matching Vite's base and nginx's locations. The console is
+# served at /dashboard/ so that `/` on this hostname is the marketing landing page.
+COPY --from=build /app/dist /usr/share/nginx/html/dashboard
 EXPOSE 8080
 USER 101
 CMD ["nginx", "-g", "daemon off;"]

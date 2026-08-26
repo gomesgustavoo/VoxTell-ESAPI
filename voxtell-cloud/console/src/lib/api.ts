@@ -1,4 +1,9 @@
 // Thin typed fetch wrapper for the /v1 API.
+//
+// Types mirror api/schemas.py. Fields marked "additive" arrived with the dashboard
+// rewrite and are optional here on purpose: the console must not break if it is
+// ever served against an older API image than it was built for, which on a
+// local-image cluster with IfNotPresent is a realistic rollback state.
 
 import { env } from "./env";
 
@@ -16,26 +21,55 @@ export interface CreatedApiKey extends ApiKey {
   token: string;
 }
 
+export type JobState =
+  | "awaiting_upload"
+  | "queued"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled"
+  | "expired";
+
+export const JOB_STATES: JobState[] = [
+  "queued",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+  "awaiting_upload",
+  "expired",
+];
+
 export interface Job {
   job_id: string;
-  state:
-    | "awaiting_upload"
-    | "queued"
-    | "running"
-    | "done"
-    | "failed"
-    | "cancelled"
-    | "expired";
+  state: JobState;
   progress: number;
   message: string | null;
   error: string | null;
   prompts: string[];
   queue_position: number | null;
+  estimated_wait_seconds?: number | null;
   poll_after: number;
   has_mask: boolean;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  // additive
+  queued_at?: string | null;
+  duration_seconds?: number | null;
+  gpu_seconds?: number | null;
+  voxels?: number | null;
+  bytes_in?: number | null;
+  attempts?: number;
+  failure_class?: string | null;
+  volume_id?: string | null;
+}
+
+export interface JobPage {
+  jobs: Job[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface Me {
@@ -46,6 +80,37 @@ export interface Me {
   used_this_month: number;
   outstanding: number;
   max_outstanding: number;
+  capabilities?: string[];
+  volume_ttl_minutes?: number | null;
+  // additive
+  queued?: number;
+  running?: number;
+  remaining?: number | null;
+}
+
+export interface UsageDay {
+  day: string;
+  jobs: number;
+  prompts: number;
+  gpu_seconds: number;
+  voxels: number;
+}
+
+export interface Usage {
+  days: UsageDay[];
+  window_days: number;
+  since: string;
+  total_jobs: number;
+  total_prompts: number;
+  total_gpu_seconds: number;
+}
+
+export interface SystemState {
+  queue_depth: number;
+  running: number;
+  worker_online: boolean;
+  estimated_wait_seconds: number;
+  snapshot_age_seconds: number;
 }
 
 export class ApiError extends Error {
@@ -91,6 +156,9 @@ async function request<T>(
 
 export const api = {
   me: (token: string) => request<Me>(token, "/me"),
+  usage: (token: string, days = 30) => request<Usage>(token, `/usage?days=${days}`),
+  system: (token: string) => request<SystemState>(token, "/system"),
+
   listKeys: (token: string) => request<ApiKey[]>(token, "/keys"),
   createKey: (token: string, name: string, expiresInDays: number | null) =>
     request<CreatedApiKey>(token, "/keys", {
@@ -99,11 +167,27 @@ export const api = {
     }),
   revokeKey: (token: string, id: string) =>
     request<void>(token, `/keys/${id}`, { method: "DELETE" }),
-  listJobs: (token: string) =>
-    request<{ jobs: Job[] }>(token, "/jobs?limit=50").then((r) => r.jobs),
+
+  listJobs: (
+    token: string,
+    opts: { limit?: number; offset?: number; state?: JobState | null } = {},
+  ) => {
+    const q = new URLSearchParams();
+    q.set("limit", String(opts.limit ?? 25));
+    if (opts.offset) q.set("offset", String(opts.offset));
+    if (opts.state) q.set("state", opts.state);
+    return request<JobPage>(token, `/jobs?${q}`);
+  },
   cancelJob: (token: string, id: string) =>
     request<Job>(token, `/jobs/${id}/cancel`, { method: "POST" }),
-  // The API answers with a 307 to a short-lived presigned S3 URL; fetch follows
-  // it, so this yields the gzipped result bytes directly.
-  resultUrl: (id: string) => `${env.apiBase}/jobs/${id}/result`,
+
+  // ?redirect=false returns {url} instead of a 307.
+  //
+  // This is not a style preference. Following the 307 from a fetch that carries an
+  // Authorization header turns the hop into a CORS request against
+  // s3.dicomsegvr.com, whose -s3.allowedOrigins is dashboard.dicomsegvr.com ONLY —
+  // so it fails preflight from this hostname. Asking for the URL and navigating to
+  // it avoids CORS entirely.
+  resultUrl: (token: string, id: string) =>
+    request<{ url: string; filename: string }>(token, `/jobs/${id}/result?redirect=false`),
 };

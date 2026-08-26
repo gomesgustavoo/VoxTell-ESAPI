@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — VoxTell</title>
+<meta name="description" content="What VoxTell uploads, what it stores, how long it keeps it, and how to have it deleted.">
+<link rel="canonical" href="https://voxtell.dicomsegvr.com/privacy.html">
+<meta name="theme-color" content="#0a0e13">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/tokens.v2.css">
+<link rel="stylesheet" href="/assets/styles.v2.css">
+<script>document.documentElement.classList.remove("no-js");</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="nav" id="top">
+  <div class="container nav__inner">
+    <a class="wordmark" href="/">Vox<em class="text-grad">Tell</em></a>
+    <nav class="nav__menu" style="position:static;max-height:none;visibility:visible;flex-direction:row;background:none;border:none;padding:0">
+      <a href="/#pricing">Pricing</a>
+      <a href="/install.html">Install</a>
+      <span class="nav__actions"><a class="btn btn--ghost" href="/dashboard/">Dashboard</a></span>
+    </nav>
+  </div>
+</header>
+<main id="main" class="legal">
+  <div class="container container--prose">
+    <a class="legal__back" href="/">&larr; Back to home</a>
+    <h1>Privacy</h1>
+    <p class="legal__meta">Last updated: 12 August 2026 · © 2026 RT Medical</p>
+    <p>
+      VoxTell segments medical images, so being vague here would be useless. This page
+      says exactly what leaves a workstation, where it goes, and when it is destroyed.
+    </p>
+
+    <h2>1. What is uploaded</h2>
+    <p>
+      When you submit a job, the plugin sends a gzipped <code>int16</code> voxel array
+      and a small geometry object describing spacing, origin and orientation, plus the
+      structure names you typed.
+    </p>
+    <p>
+      <strong>No DICOM headers are transmitted.</strong> No patient name, no medical
+      record number, no accession number, no dates, no institution, no referring
+      physician, no UIDs. The image is a raw numeric grid by the time it leaves Eclipse.
+      Voxel data can in principle be re-identified by facial reconstruction from a
+      head scan, so treat it as sensitive regardless — we do.
+    </p>
+
+    <h2>2. What we store, and for how long</h2>
+    <ul>
+      <li><b>Uploaded series</b> — deleted 120 minutes after last use, and 8 hours after upload, whichever comes first.</li>
+      <li><b>Results</b> — deleted 24 hours after the job finishes.</li>
+      <li><b>Job records</b> — structure names, timing, byte and voxel counts, and outcome are kept as your usage history. The image data they refer to is already gone.</li>
+      <li><b>Account</b> — your identifier from sign-in, your email, and your API keys as SHA-256 hashes. We never store a key in a form we could show you again.</li>
+    </ul>
+
+    <h2>3. What we never do</h2>
+    <ul>
+      <li>We do not use your images to train or evaluate models. Ever.</li>
+      <li>We do not sell data and we run no advertising or analytics trackers.</li>
+      <li>We do not read your images. Access is scoped per account at every query.</li>
+    </ul>
+
+    <h2>4. Deleting things</h2>
+    <p>
+      You can list everything currently held for your account and delete any of it
+      immediately, from the dashboard or with <code>DELETE /v1/volumes/{id}</code>. For
+      account deletion, write to us and we will remove the account and its history.
+    </p>
+
+    <h2>5. Sub-processors</h2>
+    <ul>
+      <li><b>Cloudflare</b> — TLS termination and edge delivery.</li>
+      <li><b>Stripe</b> — subscription billing. Card details go directly to Stripe; we never see or store them.</li>
+      <li><b>Our own hosting</b> — the API, GPU worker, object storage and database run on infrastructure we operate directly, not on a public cloud.</li>
+    </ul>
+
+    <h2>6. Security</h2>
+    <p>
+      Everything in transit is HTTPS. Sign-in is OpenID Connect with PKCE; the API
+      accepts either a signed token or a hashed workstation key, and a leaked key cannot
+      mint more keys or open a billing portal. Uploads use short-lived pre-signed URLs
+      scoped to a single object.
+    </p>
+
+    <h2>7. Your rights</h2>
+    <p>
+      We aim to honour access, correction, export and erasure requests under GDPR, LGPD
+      and comparable regimes, and to be HIPAA-aware in how the service is built. VoxTell
+      is not a covered entity and we do not sign BAAs at present — if your institution
+      requires one, talk to us before uploading anything.
+    </p>
+
+    <h2>8. Contact</h2>
+    <p><a href="mailto:gustavo.formento@rtmedical.com.br">gustavo.formento@rtmedical.com.br</a></p>
+    <p class="footer__legal" style="margin-top:2.5rem">
+      <strong>Template — review with counsel.</strong> This document is a good-faith
+      placeholder written to describe what the service actually does. It has not been
+      reviewed by a lawyer and is not legal advice.
+    </p>
+  </div>
+</main>
+<script src="/assets/main.v2.js" defer></script>
+</body>
+</html>

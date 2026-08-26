@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Path, Query, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -108,8 +108,67 @@ async def _queue_position(session: AsyncSession, job: Job) -> int | None:
     return int(ahead or 0)
 
 
-async def _status(session: AsyncSession, job: Job) -> JobStatusResponse:
-    position = await _queue_position(session, job)
+async def _queue_positions(session: AsyncSession, jobs: list[Job]) -> dict[uuid.UUID, int]:
+    """Queue positions for a whole page of jobs in ONE query.
+
+    ``_queue_position`` runs a COUNT per job, which is fine for a single status poll
+    and quadratic-ish for a list: the console asks for 50 and got 50 COUNTs plus 50
+    estimate calls on every refresh. Same semantics as the single-job version — the
+    number of queued jobs whose ordering key is strictly smaller, ties included —
+    computed here from one ordered fetch of the queued set.
+
+    Fetching every queued row is bounded: ``VOXTELL_MAX_GLOBAL_QUEUED`` caps the
+    backlog, and ``ix_jobs_dispatch`` is partial on ``state = 'queued'``.
+    """
+    wanted = [j for j in jobs if j.state == "queued"]
+    if not wanted:
+        return {}
+
+    key = func.coalesce(Job.queued_at, Job.created_at)
+    rows = (
+        await session.execute(select(Job.id, key).where(Job.state == "queued").order_by(key))
+    ).all()
+
+    keys = [r[1] for r in rows]
+    out: dict[uuid.UUID, int] = {}
+    own = {r[0]: r[1] for r in rows}
+    for job in wanted:
+        mine = own.get(job.id)
+        if mine is None:
+            # Raced: it left the queue between the page fetch and this query.
+            continue
+        out[job.id] = sum(1 for k in keys if k < mine)
+    return out
+
+
+def _duration_seconds(job: Job) -> float | None:
+    """Wall clock on the worker, computed server-side.
+
+    Server-side so every client agrees and none of them has to subtract two
+    timestamps in the browser's local timezone — which is how a duration ends up
+    an hour out twice a year.
+    """
+    if job.started_at is None or job.finished_at is None:
+        return None
+    return round((job.finished_at - job.started_at).total_seconds(), 2)
+
+
+async def _status(
+    session: AsyncSession,
+    job: Job,
+    position: int | None = None,
+    *,
+    position_known: bool = False,
+) -> JobStatusResponse:
+    """Build a status payload.
+
+    ``position_known`` distinguishes "the caller already looked it up and the answer
+    was None" from "the caller did not look". Without it, a batched list would
+    silently re-run the per-job COUNT for every job whose position is legitimately
+    null — which is every non-queued job, i.e. almost all of them.
+    """
+    if not position_known:
+        position = await _queue_position(session, job)
     return JobStatusResponse(
         job_id=job.id,
         state=job.state,
@@ -128,6 +187,15 @@ async def _status(session: AsyncSession, job: Job) -> JobStatusResponse:
         created_at=job.created_at,
         started_at=job.started_at,
         finished_at=job.finished_at,
+        # Additive fields for the dashboard; all existing columns.
+        queued_at=job.queued_at,
+        duration_seconds=_duration_seconds(job),
+        gpu_seconds=job.gpu_seconds,
+        voxels=job.voxels,
+        bytes_in=job.bytes_in,
+        attempts=job.attempts,
+        failure_class=job.failure_class,
+        volume_id=job.volume_id,
     )
 
 
@@ -440,17 +508,49 @@ async def get_job(
 @router.get("", response_model=JobListResponse)
 async def list_jobs(
     limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    state: str | None = Query(
+        None,
+        pattern="^(awaiting_upload|queued|running|done|failed|cancelled|expired)$",
+        description="Filter to one state. Omit for every state.",
+    ),
     user: User = Depends(get_caller),
     session: AsyncSession = Depends(get_session),
 ) -> JobListResponse:
+    """The caller's jobs, newest first.
+
+    The default is deliberately unchanged — no filter, ``limit=50``, ``offset=0`` —
+    because the approved 2.0.1.0 plugin calls this with no parameters and its job
+    list must not silently shrink or reorder. ``state`` and ``offset`` are opt-in,
+    and ``total`` is additive.
+
+    ``ix_jobs_user_state`` already covers the filtered form.
+    """
+    where = [Job.user_id == user.id]
+    if state is not None:
+        where.append(Job.state == state)
+
+    total = await session.scalar(select(func.count(Job.id)).where(*where))
+
     result = await session.execute(
         select(Job)
-        .where(Job.user_id == user.id)
+        .where(*where)
         .order_by(Job.created_at.desc())
         .limit(limit)
+        .offset(offset)
     )
+    jobs = list(result.scalars().all())
+
+    # One query for the whole page instead of one COUNT per row.
+    positions = await _queue_positions(session, jobs)
     return JobListResponse(
-        jobs=[await _status(session, j) for j in result.scalars().all()]
+        jobs=[
+            await _status(session, j, positions.get(j.id), position_known=True)
+            for j in jobs
+        ],
+        total=int(total or 0),
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -528,14 +628,32 @@ async def delete_job(
 async def get_result(
     job_id: str = Path(..., description="Job UUID"),
     format: str = Query("contours", pattern="^(contours|mask)$"),
+    redirect: bool = Query(
+        True,
+        description=(
+            "False returns {\"url\": ...} instead of a 307. For browsers: see below."
+        ),
+    ),
     user: User = Depends(get_caller),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Redirect to a short-lived presigned URL for the result object.
 
-    A redirect rather than a proxied stream: contour JSON for a whole abdomen
-    runs to tens of megabytes and there is no reason to push it through the API
-    pods (or Cloudflare's request pipeline twice).
+    A redirect rather than a proxied stream: contour JSON for a whole abdomen runs
+    to tens of megabytes and there is no reason to push it through the API pods (or
+    Cloudflare's request pipeline twice).
+
+    **The 307 is the default and must stay the default.** The approved 2.0.1.0
+    plugin depends on it (``VoxTellApiClient.cs:383`` follows the redirect), and
+    changing it would need a re-approval on every workstation.
+
+    ``?redirect=false`` exists for the browser, and it fixes a latent
+    cross-origin failure rather than a stylistic one. A ``fetch`` that carries an
+    ``Authorization`` header and then follows a 307 to ``s3.dicomsegvr.com``
+    becomes a CORS request against SeaweedFS, whose ``-s3.allowedOrigins`` is
+    ``https://dashboard.dicomsegvr.com`` **only** — so the redirect hop fails
+    preflight from this hostname. Handing back the URL and letting the page
+    navigate to it sidesteps CORS entirely, with no SeaweedFS restart.
     """
     job = await _load_owned_job(session, user, job_id)
     if job.state != "done":
@@ -550,4 +668,7 @@ async def get_result(
             raise not_found("Result object is missing (it may have been purged)")
         key, filename = job.result_key, f"{job.id}-result.json.gz"
 
-    return RedirectResponse(url=await storage.presign_get(key, filename), status_code=307)
+    url = await storage.presign_get(key, filename)
+    if not redirect:
+        return JSONResponse({"url": url, "filename": filename})
+    return RedirectResponse(url=url, status_code=307)

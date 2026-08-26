@@ -7,6 +7,12 @@ import tailwindcss from "@tailwindcss/vite";
 const here = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  // The console is served at voxtell.dicomsegvr.com/dashboard/ so that `/` can be the
+  // marketing landing page. This MUST be baked into the build: a Traefik StripPrefix
+  // would leave the SPA emitting /assets/… , which resolves against the landing
+  // service and 404s. Trailing slash is required — Vite treats a bare "/dashboard"
+  // as a filename prefix rather than a directory.
+  base: "/dashboard/",
   plugins: [react(), tailwindcss()],
   build: {
     outDir: "dist",

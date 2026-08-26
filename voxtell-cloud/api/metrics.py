@@ -261,6 +261,43 @@ class _DatabaseSnapshot:
                 yield GaugeMetricFamily(name, documentation, value=self._values[column])
 
 
+    def public_view(self) -> dict[str, float | bool]:
+        """The subset ``GET /v1/system`` may show a signed-in user.
+
+        An accessor rather than letting the route read ``_values`` directly, so the
+        gauge set can grow without deciding by accident what is public. Queue depth
+        and running count are the caller's own wait, explained; per-user maxima and
+        tenant counts stay in Prometheus, behind its token.
+
+        Deliberately serves the CACHE. A dashboard polling this every few seconds
+        must not be able to put load on Postgres — which is the whole reason this
+        snapshot exists.
+        """
+        v = self._values
+        queued = int(v.get("jobs_queued", 0))
+        running = int(v.get("jobs_running", 0))
+        oldest = float(v.get("oldest_queued_age", 0.0))
+        expired = int(v.get("leases_expired", 0))
+
+        # Offline means "nothing is picking work up", and the two ways to see that
+        # are a lapsed lease on a running job, or queued work sitting with an idle
+        # GPU. A job merely *waiting for the GPU mutex* held by DicomSegVR is
+        # already `running` — the worker claims it and then blocks — so it does not
+        # trip this. The 180 s grace absorbs the gap between claims.
+        stalled_queue = queued > 0 and running == 0 and oldest > 180
+        return {
+            "queue_depth": queued,
+            "running": running,
+            "worker_online": self._fresh and not expired and not stalled_queue,
+            "snapshot_age_seconds": round(
+                time.monotonic() - self._refreshed_monotonic
+                if self._refreshed_monotonic
+                else 0.0,
+                1,
+            ),
+        }
+
+
 SNAPSHOT = _DatabaseSnapshot()
 
 

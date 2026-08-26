@@ -52,4 +52,11 @@ async def me(
         max_outstanding=state.max_outstanding,
         capabilities=_capabilities(),
         volume_ttl_minutes=settings.VOXTELL_VOLUME_TTL_MINUTES if volumes_on else None,
+        # Additive. `QuotaState` has carried all three for a while and `load_state`
+        # already computes them; they were being collapsed into `outstanding` before
+        # reaching the wire, so the console could say "1/2 in flight" but never
+        # whether the job was waiting for the GPU or on it.
+        queued=state.queued,
+        running=state.running,
+        remaining=state.remaining,
     )

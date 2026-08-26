@@ -1,141 +1,141 @@
+// The router and the auth gate.
+//
+// Was: `window.location.pathname === "/dashboard/auth/callback"` read during render,
+// two tabs held in useState, no URLs, and back/forward doing nothing. Now
+// react-router with basename="/dashboard", so every view is linkable and the browser's
+// own navigation works.
+
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+
 import { useAuth } from "./auth/AuthProvider";
 import { userManager } from "./auth/userManager";
-import { api, type Me } from "./lib/api";
-import { Button } from "./components/ui";
-import { Jobs } from "./pages/Jobs";
-import { Keys } from "./pages/Keys";
-
-type Tab = "keys" | "jobs";
+import { AppShell, Centered, Wordmark } from "./components/layout";
+import { Alert, Button } from "./components/ui";
+import Billing from "./pages/Billing";
+import Checkout from "./pages/Checkout";
+import Jobs from "./pages/Jobs";
+import Keys from "./pages/Keys";
+import Overview from "./pages/Overview";
 
 /** Completes the authorization-code exchange, then returns to the app root. */
 function Callback() {
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
   useEffect(() => {
     userManager
       .signinRedirectCallback()
-      .then(() => window.history.replaceState({}, "", "/"))
+      // An explicit route transition, not a history.replaceState. The old code
+      // rewrote the URL and relied on the coincidence that AuthProvider's UserLoaded
+      // event happened to re-render at the same moment; if that event ordering ever
+      // changed, the app would sit on a rewritten URL showing the callback screen.
+      .then(() => navigate("/", { replace: true }))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [navigate]);
+
   return (
     <Centered>
       {error ? (
-        <>
-          <p className="text-danger">Sign-in failed: {error}</p>
-          <Button onClick={() => (window.location.href = "/")}>Try again</Button>
-        </>
+        <div className="flex flex-col items-center gap-4">
+          <Alert>Sign-in failed: {error}</Alert>
+          <Button variant="primary" onClick={() => window.location.assign("/dashboard/")}>
+            Try again
+          </Button>
+        </div>
       ) : (
-        <p className="text-muted">Signing in…</p>
+        <p className="text-sm text-muted">Signing in…</p>
       )}
     </Centered>
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-      {children}
-    </div>
-  );
-}
-
-function SignIn({ onSignin }: { onSignin: () => void }) {
+function SignIn({ onSignin, error }: { onSignin: () => void; error: Error | null }) {
   return (
     <Centered>
-      <Wordmark />
-      <p className="max-w-md text-sm text-muted">
-        Free-text 3D segmentation for Varian Eclipse. Sign in to manage the API
-        keys your ESAPI plugin uses and to follow your segmentation jobs.
-      </p>
-      <Button onClick={onSignin} className="mt-2">
-        Sign in
-      </Button>
+      <div className="flex flex-col items-center gap-4">
+        <Wordmark />
+        <p className="max-w-sm text-sm text-muted">
+          Free-text organ segmentation for Varian Eclipse. Sign in to follow your jobs,
+          manage the workstation keys your ESAPI plugin uses, and see your usage.
+        </p>
+        {/* AuthProvider has always set this and nothing ever rendered it, so a silent
+            renew failure looked like an app that simply would not sign in. */}
+        {error && <Alert>{error.message}</Alert>}
+        <Button variant="primary" size="lg" onClick={onSignin}>
+          Sign in
+        </Button>
+        <p className="text-xs text-faint">
+          Uses your RT Medical account — the same sign-in as DicomSegVR.
+        </p>
+      </div>
     </Centered>
   );
 }
 
-function Wordmark() {
+function NotFound() {
   return (
-    <div className="flex items-center gap-2.5">
-      {/* Three stacked slices with a prompt caret — text in, volume out. */}
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <g fill="none" stroke="var(--color-accent)" strokeWidth="1.6" strokeLinejoin="round">
-          <path d="M13 3.5 22 8l-9 4.5L4 8z" />
-          <path d="M4 13l9 4.5L22 13" opacity=".65" />
-          <path d="M4 18l9 4.5L22 18" opacity=".35" />
-        </g>
-      </svg>
-      <span className="text-lg font-semibold tracking-tight">
-        VoxTell <span className="text-accent">Cloud</span>
-      </span>
-    </div>
+    <Centered>
+      <div className="flex flex-col items-center gap-4">
+        <p className="text-grad text-2xl font-bold">404</p>
+        <p className="text-sm text-muted">That page does not exist in the dashboard.</p>
+        <Button onClick={() => window.location.assign("/dashboard/")}>Go to overview</Button>
+      </div>
+    </Centered>
   );
 }
 
 export function App() {
-  const { isAuthenticated, isLoading, isSigningOut, token, signin, signout } = useAuth();
-  const [tab, setTab] = useState<Tab>("keys");
-  const [me, setMe] = useState<Me | null>(null);
-
-  const isCallback = window.location.pathname === "/auth/callback";
-
-  useEffect(() => {
-    if (!token) return;
-    api.me(token).then(setMe).catch(() => setMe(null));
-  }, [token]);
-
-  if (isCallback) return <Callback />;
-  if (isLoading) return <Centered><p className="text-muted">Loading…</p></Centered>;
-  if (isSigningOut) return <Centered><p className="text-muted">Signing out…</p></Centered>;
-  if (!isAuthenticated || !token) return <SignIn onSignin={() => void signin()} />;
+  const { isAuthenticated, isLoading, isSigningOut, token, error, signin, signout } = useAuth();
 
   return (
-    <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <Wordmark />
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted">{me?.email ?? me?.username ?? ""}</span>
-          <Button variant="ghost" onClick={() => void signout()}>
-            Sign out
-          </Button>
-        </div>
-      </header>
+    <Routes>
+      {/* The callback is outside the auth gate on purpose: at this point the user is
+          by definition not yet authenticated, and gating it would bounce the code
+          exchange back into a fresh sign-in. */}
+      <Route path="/auth/callback" element={<Callback />} />
+      <Route
+        path="*"
+        element={
+          isLoading ? (
+            <Centered>
+              <p className="text-sm text-muted">Loading…</p>
+            </Centered>
+          ) : isSigningOut ? (
+            <Centered>
+              <p className="text-sm text-muted">Signing out…</p>
+            </Centered>
+          ) : !isAuthenticated || !token ? (
+            <SignIn onSignin={() => void signin()} error={error} />
+          ) : (
+            <SignedIn onSignOut={() => void signout()} />
+          )
+        }
+      />
+    </Routes>
+  );
+}
 
-      {me && (
-        <p className="mb-6 text-sm text-muted">
-          {me.used_this_month} of{" "}
-          {me.monthly_quota === null ? "unlimited" : me.monthly_quota} jobs used
-          this month · {me.outstanding}/{me.max_outstanding} in flight
-        </p>
-      )}
+function SignedIn({ onSignOut }: { onSignOut: () => void }) {
+  const { user } = useAuth();
+  const email =
+    (user?.profile?.email as string | undefined) ??
+    (user?.profile?.preferred_username as string | undefined) ??
+    null;
 
-      <nav className="mb-5 flex gap-1" role="tablist">
-        {(["keys", "jobs"] as const).map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={`rounded-lg px-3.5 py-2 text-sm font-medium capitalize transition-colors ${
-              tab === t
-                ? "bg-surface-2 text-ink"
-                : "text-muted hover:bg-surface hover:text-ink"
-            }`}
-          >
-            {t === "keys" ? "API keys" : "Jobs"}
-          </button>
-        ))}
-      </nav>
-
-      <main className="flex-1">
-        {tab === "keys" ? <Keys token={token} /> : <Jobs token={token} />}
-      </main>
-
-      <footer className="mt-10 border-t border-border pt-5 text-xs text-muted">
-        VoxTell model by MIC, DKFZ Heidelberg (arXiv:2511.11450). Segmentation
-        output is for research and planning support — always review contours
-        before clinical use.
-      </footer>
-    </div>
+  return (
+    <AppShell email={email} onSignOut={onSignOut}>
+      <Routes>
+        <Route path="/" element={<Overview />} />
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/keys" element={<Keys />} />
+        <Route path="/billing" element={<Billing />} />
+        <Route path="/checkout" element={<Checkout />} />
+        {/* A signed-in user hitting the callback path directly has nothing to
+            exchange; send them home rather than showing "Signing in…" forever. */}
+        <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppShell>
   );
 }

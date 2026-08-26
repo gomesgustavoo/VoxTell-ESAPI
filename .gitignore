@@ -24,3 +24,7 @@ __pycache__/
 # and the image someone actually deployed.
 node_modules/
 voxtell-cloud/console/dist/
+
+# tsc -b incremental state. Regenerated on every build and it records absolute
+# paths from whoever built last, so a committed copy is pure diff noise.
+*.tsbuildinfo

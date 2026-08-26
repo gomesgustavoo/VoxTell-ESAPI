@@ -270,9 +270,46 @@ class JobStatusResponse(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
+    # ---- Additive, for the dashboard. Every one of these is an existing column.
+    #
+    # SAFE BECAUSE THE APPROVED PLUGIN USES NEWTONSOFT, which ignores unknown JSON
+    # fields — so 2.0.1.0 keeps deserialising this unchanged. Adding is safe;
+    # renaming or removing anything above is not, and needs a DLL re-approval on
+    # every workstation.
+    queued_at: datetime | None = Field(
+        None, description="When the job entered the queue; null if it never did"
+    )
+    duration_seconds: float | None = Field(
+        None,
+        description=(
+            "Wall-clock seconds on the worker (finished_at - started_at). Server-"
+            "computed so every client agrees, and so a client cannot get it wrong "
+            "by subtracting timestamps in the browser's local timezone."
+        ),
+    )
+    gpu_seconds: float | None = Field(None, description="Measured GPU time, when recorded")
+    voxels: int | None = None
+    bytes_in: int | None = Field(None, description="Compressed upload size")
+    attempts: int = Field(0, description="Claim attempts; >1 means it was requeued")
+    failure_class: str | None = Field(
+        None,
+        description=(
+            "Bounded label for a failure: transient | permanent | stalled | timeout. "
+            "Null unless the job failed."
+        ),
+    )
+    volume_id: uuid.UUID | None = Field(
+        None, description="The uploaded volume this job segmented; null for a legacy inline job"
+    )
+
 
 class JobListResponse(BaseModel):
     jobs: list[JobStatusResponse]
+    # Additive. `total` is the count matching the filter, ignoring limit/offset, so
+    # a client can page without guessing when it has reached the end.
+    total: int = Field(0, description="Jobs matching the filter, before paging")
+    limit: int = Field(50)
+    offset: int = Field(0)
 
 
 # --------------------------------------------------------------------------- #
@@ -321,6 +358,76 @@ class MeResponse(BaseModel):
     # for how long, without a second round trip.
     volume_ttl_minutes: int | None = Field(
         None, description="Idle expiry of an uploaded volume; null when volumes are disabled"
+    )
+
+    # ---- Additive, for the dashboard. All three already exist on QuotaState and
+    # were being collapsed into `outstanding` before reaching the wire, which is
+    # why the console could only ever say "1/2 in flight" without saying whether
+    # the job was waiting for the GPU or on it.
+    queued: int = Field(0, description="Caller's jobs waiting for the GPU")
+    running: int = Field(0, description="Caller's jobs on the GPU now")
+    remaining: int | None = Field(
+        None, description="Jobs left this month; null when the quota is unlimited"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Usage
+# --------------------------------------------------------------------------- #
+class UsageDay(BaseModel):
+    """One UTC calendar day of usage.
+
+    UTC deliberately, matching ``quota.month_start()``. Bucketing in a local
+    timezone would make the daily columns disagree with the monthly quota the
+    same page shows above them, which is the kind of off-by-one nobody
+    investigates and everybody distrusts.
+    """
+
+    day: str = Field(..., description="ISO date, YYYY-MM-DD, in UTC")
+    jobs: int
+    prompts: int
+    gpu_seconds: float
+    voxels: int
+
+
+class UsageResponse(BaseModel):
+    days: list[UsageDay] = Field(
+        ...,
+        description=(
+            "One entry per day in the window, oldest first, INCLUDING days with no "
+            "activity. Zero-filled server-side so a chart can plot the array "
+            "directly instead of reconstructing a calendar."
+        ),
+    )
+    window_days: int
+    since: str = Field(..., description="First day in the window, ISO date, UTC")
+    # Totals over the window, so the summary numbers and the chart cannot disagree.
+    total_jobs: int
+    total_prompts: int
+    total_gpu_seconds: float
+
+
+# --------------------------------------------------------------------------- #
+# System
+# --------------------------------------------------------------------------- #
+class SystemResponse(BaseModel):
+    """Shared-service state, so a queued job's wait is explainable.
+
+    Served from the cached snapshot ``api/metrics.py`` already refreshes for the
+    Prometheus scrape — not from fresh queries. A dashboard polling this every few
+    seconds must not be able to add load to the database.
+    """
+
+    queue_depth: int = Field(..., description="Queued jobs across every user")
+    running: int = Field(..., description="Jobs on the GPU across every user")
+    worker_online: bool = Field(
+        ..., description="A worker has heartbeat a running job recently, or is idle and healthy"
+    )
+    estimated_wait_seconds: int = Field(
+        ..., description="Rough seconds for a job joining the back of the queue now"
+    )
+    snapshot_age_seconds: float = Field(
+        ..., description="How stale these numbers are; the snapshot is cached"
     )
 
 
