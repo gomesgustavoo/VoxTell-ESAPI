@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  The preview harness page.
+
+  NOT SHIPPED. vite.config.ts adds this entry only when VX_PREVIEW=1, so a normal
+  `npm run build` (and therefore Dockerfile.console) cannot emit it. Keeping the
+  exclusion in the config rather than in a .dockerignore means the guarantee holds
+  wherever the build runs.
+
+  Served by:  npm run preview:harness
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0a0e13" />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <title>VoxTell Cloud — preview harness</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/__preview.tsx"></script>
+  </body>
+</html>

@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { api } from "../lib/api";
-import { duration, gpuTime, n, daysLeftInMonth } from "../lib/format";
+import { bytes, duration, gpuTime, n, daysLeftInMonth, relative } from "../lib/format";
 import { useAuth } from "../auth/AuthProvider";
 import { ColumnChart, DonutRing, QuotaMeter } from "../components/charts";
 import { JobLine } from "../components/JobRow";
@@ -50,6 +50,17 @@ export default function Overview() {
     queryFn: () => api.listJobs(token!, { limit: 5 }),
     enabled: !!token,
     staleTime: 15_000,
+  });
+
+  // /v1/me has always returned `capabilities` and the console has always ignored it.
+  // Gate on it rather than sniffing a 404: the server derives it from
+  // VOXTELL_VOLUMES_ENABLED, so this is the supported way to ask.
+  const hasVolumes = me.data?.capabilities?.includes("volumes") ?? false;
+  const volumes = useQuery({
+    queryKey: ["volumes"],
+    queryFn: () => api.listVolumes(token!),
+    enabled: !!token && hasVolumes,
+    staleTime: 60_000,
   });
 
   const inFlight = (me.data?.queued ?? 0) + (me.data?.running ?? 0);
@@ -99,8 +110,15 @@ export default function Overview() {
                 me.data.max_outstanding === 1 ? "" : "s"
               }.`}
             />
-          ) : (
+          ) : me.isLoading ? (
             <Skeleton className="h-20 w-full" />
+          ) : (
+            // NOT a Skeleton. When /me errors this card used to show a pulsing
+            // placeholder forever, which says "still loading" about something that
+            // has already failed.
+            <p className="text-sm text-muted">
+              Your concurrency cap could not be read.
+            </p>
           )}
         </Card>
       </div>
@@ -113,8 +131,11 @@ export default function Overview() {
         />
         <StatCard
           label={`GPU / ${WINDOW_DAYS}d`}
-          value={usage.data ? gpuTime(usage.data.total_gpu_seconds).split(" ")[0] : "—"}
-          unit={usage.data ? gpuTime(usage.data.total_gpu_seconds).split(" ")[1] : undefined}
+          // gpuTime returns "1.2 h" or "48 s"; split it into value and unit for the
+          // tile. `?? undefined` rather than [1] directly, because a single-token
+          // return would otherwise render the string "undefined" as the unit.
+          value={usage.data ? (gpuTime(usage.data.total_gpu_seconds).split(" ")[0] ?? "—") : "—"}
+          unit={usage.data ? (gpuTime(usage.data.total_gpu_seconds).split(" ")[1] ?? undefined) : undefined}
         />
         <StatCard
           label="Queue depth"
@@ -165,6 +186,51 @@ export default function Overview() {
         )}
       </Card>
 
+      {hasVolumes && (volumes.data?.volumes.length ?? 0) > 0 && (
+        <Card
+          title="Held series"
+          eyebrow="Reusable uploads"
+          action={
+            <span className="font-mono text-xs text-faint tabular-nums">
+              {volumes.data!.volumes.length} of 3
+            </span>
+          }
+        >
+          {/* Worth a card because reusing a held series is the difference between a
+              10 s job and a 30 s upload, and because these expire on a clock the
+              plugin never shows you. The API has exposed /v1/volumes since v3 and
+              nothing in the console has ever called it. */}
+          <ul className="flex flex-col">
+            {volumes.data!.volumes.map((v) => (
+              <li
+                key={v.volume_id}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border-soft py-2.5 last:border-0"
+              >
+                <span className="font-mono text-xs text-ink tabular-nums">
+                  {v.x_size} × {v.y_size} × {v.z_size}
+                </span>
+                <span className="font-mono text-[11px] text-muted tabular-nums">
+                  {bytes(v.bytes)}
+                </span>
+                <span className="font-mono text-[11px] text-muted tabular-nums">
+                  {v.jobs_run} job{v.jobs_run === 1 ? "" : "s"} run
+                </span>
+                <span
+                  className="ml-auto font-mono text-[11px] text-faint tabular-nums"
+                  title={v.expires_at}
+                >
+                  expires {relative(v.expires_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">
+            A series is held for 120 minutes after its last job, and never longer than 8
+            hours. Segmenting one again costs no upload.
+          </p>
+        </Card>
+      )}
+
       <Card
         title="Recent jobs"
         action={
@@ -182,6 +248,12 @@ export default function Overview() {
               <Skeleton key={i} className="h-8 w-full" />
             ))}
           </div>
+        ) : recent.isError ? (
+          // This branch did not exist. A failed job fetch fell through to the empty
+          // state, so a transient API error was indistinguishable from "you have
+          // never run a job" — on the panel a user checks to see whether their work
+          // arrived.
+          <Alert>Could not load recent jobs: {(recent.error as Error).message}</Alert>
         ) : recent.data?.jobs.length ? (
           <div>
             {recent.data.jobs.map((j) => (

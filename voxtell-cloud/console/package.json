@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "//preview:harness": "The only way to SEE the signed-in pages without a live Keycloak token.",
+    "preview:harness": "VX_PREVIEW=1 vite --port 5174",
+    "build:harness": "VX_PREVIEW=1 tsc -b && VX_PREVIEW=1 vite build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

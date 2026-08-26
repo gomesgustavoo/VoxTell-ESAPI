@@ -14,7 +14,7 @@ import { useSearchParams } from "react-router-dom";
 import { JOB_STATES, api, type JobPage, type JobState } from "../lib/api";
 import { n } from "../lib/format";
 import { useAuth } from "../auth/AuthProvider";
-import { JobCard } from "../components/JobRow";
+import { JobCard, JobTableRow } from "../components/JobRow";
 import {
   Alert,
   Button,
@@ -23,11 +23,18 @@ import {
   SectionHeader,
   Select,
   Skeleton,
+  Table,
   ToastStack,
   useToasts,
 } from "../components/ui";
 
 const PAGE = 25;
+
+// Density lives in the URL alongside the filter and the page, so a link to a job
+// list carries how it was being read. Cards are the default because a first-time
+// visitor with three jobs wants to see what a job contains, not scan a table.
+type Density = "cards" | "table";
+const TABLE_HEAD = ["State", "Prompts", "Duration", "GPU", "Submitted", ""];
 
 export default function Jobs() {
   const { token } = useAuth();
@@ -38,7 +45,12 @@ export default function Jobs() {
   const [params, setParams] = useSearchParams();
   const state = (params.get("state") as JobState | null) ?? null;
   const offset = Math.max(0, Number(params.get("offset") ?? 0) || 0);
+  const density: Density = params.get("view") === "table" ? "table" : "cards";
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+  // WHICH row is busy, not whether ANY row is. `cancel.isPending` disabled the
+  // buttons on all 25 rows while one mutation was in flight, which reads as the page
+  // having locked up.
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const jobs = useQuery<JobPage>({
     queryKey: ["jobs", { state, offset, limit: PAGE }],
@@ -57,17 +69,24 @@ export default function Jobs() {
   });
 
   const cancel = useMutation({
-    mutationFn: (id: string) => api.cancelJob(token!, id),
+    mutationFn: (id: string) => {
+      setBusyId(id);
+      return api.cancelJob(token!, id);
+    },
     onSuccess: () => {
       push("Cancellation requested.");
-      qc.invalidateQueries({ queryKey: ["jobs"] });
-      qc.invalidateQueries({ queryKey: ["me"] });
+      void qc.invalidateQueries({ queryKey: ["jobs"] });
+      void qc.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (e: Error) => push(e.message, "danger"),
+    onSettled: () => setBusyId(null),
   });
 
   const download = useMutation({
-    mutationFn: (id: string) => api.resultUrl(token!, id),
+    mutationFn: (id: string) => {
+      setBusyId(id);
+      return api.resultUrl(token!, id);
+    },
     onSuccess: ({ url }) => {
       // Plain navigation to the presigned URL. Fetching it instead would attach the
       // Authorization header and turn the S3 hop into a CORS request that
@@ -75,6 +94,7 @@ export default function Jobs() {
       window.location.assign(url);
     },
     onError: (e: Error) => push(e.message, "danger"),
+    onSettled: () => setBusyId(null),
   });
 
   const total = jobs.data?.total ?? 0;
@@ -86,6 +106,13 @@ export default function Jobs() {
     if (next) p.set("state", next);
     else p.delete("state");
     p.delete("offset");
+    setParams(p, { replace: true });
+  }
+
+  function setDensity(next: Density) {
+    const p = new URLSearchParams(params);
+    if (next === "table") p.set("view", "table");
+    else p.delete("view");
     setParams(p, { replace: true });
   }
 
@@ -121,7 +148,33 @@ export default function Jobs() {
             </option>
           ))}
         </Select>
-        {jobs.isFetching && <span className="font-mono text-[10px] text-faint">refreshing…</span>}
+        {/* A two-button group rather than a Select: two mutually exclusive options
+            with no hidden state is exactly what a segmented control is for. */}
+        <div className="flex overflow-hidden rounded-chip border border-border" role="group" aria-label="Row density">
+          {(["cards", "table"] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDensity(d)}
+              aria-pressed={density === d}
+              className={
+                "px-2.5 py-1.5 font-mono text-[10px] tracking-label uppercase transition-colors " +
+                (density === d
+                  ? "bg-surface-2 text-accent"
+                  : "text-faint hover:text-ink")
+              }
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+        {jobs.isFetching && (
+          // aria-live, or the only signal that the list is updating itself is a
+          // visual one.
+          <span className="font-mono text-[10px] text-faint" role="status" aria-live="polite">
+            refreshing…
+          </span>
+        )}
       </div>
 
       {jobs.isError && <Alert>Could not load jobs: {(jobs.error as Error).message}</Alert>}
@@ -138,13 +191,25 @@ export default function Jobs() {
             ? `No jobs in state “${state.replace("_", " ")}”.`
             : "No jobs yet. Segmentations submitted from Eclipse show up here."}
         </Empty>
+      ) : density === "table" ? (
+        <Table head={TABLE_HEAD}>
+          {(jobs.data?.jobs ?? []).map((job) => (
+            <JobTableRow
+              key={job.job_id}
+              job={job}
+              busy={busyId === job.job_id}
+              onCancel={(id) => setConfirmCancel(id)}
+              onDownload={(id) => download.mutate(id)}
+            />
+          ))}
+        </Table>
       ) : (
         <ul className="flex flex-col gap-3">
-          {jobs.data!.jobs.map((job) => (
+          {(jobs.data?.jobs ?? []).map((job) => (
             <JobCard
               key={job.job_id}
               job={job}
-              busy={cancel.isPending || download.isPending}
+              busy={busyId === job.job_id}
               onCancel={(id) => setConfirmCancel(id)}
               onDownload={(id) => download.mutate(id)}
             />

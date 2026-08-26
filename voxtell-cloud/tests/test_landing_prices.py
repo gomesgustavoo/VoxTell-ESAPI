@@ -170,3 +170,78 @@ def test_no_stale_asset_versions_are_referenced(html: str) -> None:
         if ".v1." in ref and "prompts.v1.json" not in ref
     ]
     assert not stale, f"stale v1 asset references: {sorted(set(stale))}"
+
+
+# --------------------------------------------------------------------------- #
+# The console's copy of the same table.
+# --------------------------------------------------------------------------- #
+#
+# Adding console/src/lib/plans.ts removed the duplication *inside* the console
+# (Billing.tsx and Checkout.tsx each had a copy, and Billing's had already drifted
+# from the marketing page) but it did not remove the duplication BETWEEN the console
+# and the landing page. Nothing but this test connects them, and the failure mode is
+# invisible: a customer reads one number on the marketing page, signs in, and reads a
+# different one on the billing page.
+#
+# Parsed with a regex rather than a TS parser on purpose — there is no Node in the
+# test environment, and the shape being asserted is a literal.
+
+PLANS_TS = (
+    pathlib.Path(__file__).resolve().parent.parent / "console" / "src" / "lib" / "plans.ts"
+)
+
+
+@pytest.fixture(scope="module")
+def plans_ts() -> str:
+    assert PLANS_TS.is_file(), f"missing {PLANS_TS}"
+    return PLANS_TS.read_text()
+
+
+def test_console_plan_table_exists(plans_ts: str) -> None:
+    """If this file moves, every assertion below would vacuously pass."""
+    assert "export const PLANS" in plans_ts
+    for plan_id in PLANS:
+        assert f'id: "{plan_id}"' in plans_ts, f"{plan_id} missing from plans.ts"
+
+
+def test_console_prices_match_the_landing_page(plans_ts: str) -> None:
+    for plan_id, spec in PLANS.items():
+        assert f'price: "${spec["price"]}"' in plans_ts, (
+            f"{plan_id}: plans.ts does not price it at ${spec['price']}, which is what "
+            f"the landing page card and the JSON-LD offer both say."
+        )
+
+
+def test_console_plan_names_and_bundles_match(plans_ts: str) -> None:
+    for plan_id, spec in PLANS.items():
+        assert f'name: "{spec["name"]}"' in plans_ts, f"{plan_id}: name differs"
+        assert f'bundle: "{spec["bundle"]}"' in plans_ts, (
+            f"{plan_id}: plans.ts does not bundle {spec['bundle']}"
+        )
+
+
+def test_console_quotas_match_the_landing_page(plans_ts: str) -> None:
+    """The quota is the figure most likely to be edited on one surface only."""
+    for plan_id, spec in PLANS.items():
+        # "60 jobs" on the card -> "60 jobs a month" in the console's feature list;
+        # Enterprise says "Unlimited" both places.
+        needle = spec["jobs"]
+        assert needle.lower() in plans_ts.lower(), (
+            f"{plan_id}: plans.ts states no feature containing {needle!r}"
+        )
+
+
+def test_console_checkout_urls_are_the_published_ones(plans_ts: str) -> None:
+    """The console links are router-relative; the landing links carry /dashboard."""
+    for plan_id, spec in PLANS.items():
+        if spec["checkout"] is None:
+            continue
+        relative = spec["checkout"].removeprefix("/dashboard")
+        assert f'checkout: "{relative}"' in plans_ts, (
+            f"{plan_id}: plans.ts should route checkout to {relative} so that it and "
+            f'the landing page\'s {spec["checkout"]} land on the same screen'
+        )
+
+
+def test_console_trial_length_matches(plans_ts: str) -> None:
+    assert f"TRIAL_DAYS = {TRIAL_DAYS}" in plans_ts

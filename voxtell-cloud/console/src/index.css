@@ -122,3 +122,34 @@
     opacity: 0.85;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Reduced motion.
+
+   Tailwind ships `motion-reduce:` variants but they have to be written per
+   utility, and this app uses `animate-pulse` in Skeleton and the queued-state dot
+   plus a `hover:-translate-y-px` lift on every button — three places that would
+   each have to remember. A blanket rule is the honest version: a user who has asked
+   the OS to stop animating things did not ask three of five to keep going.
+
+   Deliberately not `animation: none`: an interrupted keyframe can leave an element
+   at an intermediate opacity, so a skeleton would freeze half-faded. Collapsing the
+   duration runs it to its final frame instead.
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The lift is the one thing worth removing outright rather than shortening: it
+     moves a control out from under the pointer. */
+  .btn-lift,
+  a:hover,
+  button:hover {
+    transform: none !important;
+  }
+}

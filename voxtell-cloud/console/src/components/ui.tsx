@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 
 import type { JobState } from "../lib/api";
+import type { Plan } from "../lib/plans";
 import { structureColour } from "../lib/structures";
 
 /* -- buttons ------------------------------------------------------------- */
@@ -215,10 +216,29 @@ export function Alert({
     info: "border-accent/40 bg-accent/8 text-accent-3",
     ok: "border-ok/40 bg-ok/10 text-ok",
   } as const;
+  // role follows the tone. `status` is a polite live region, which a screen reader
+  // may hold until the user is idle — wrong for "your job failed". `alert` is
+  // assertive and interrupts, which is the point of an error.
   return (
-    <p className={`rounded-chip border px-3 py-2 text-sm ${tones[tone]}`} role="status">
+    <p
+      className={`rounded-chip border px-3 py-2 text-sm ${tones[tone]}`}
+      role={tone === "danger" ? "alert" : "status"}
+    >
       {children}
     </p>
+  );
+}
+
+/** A spinner, for the three screens that used to be one line of muted text. */
+export function Spinner({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted" role="status">
+      <span
+        className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-border border-t-accent motion-reduce:animate-none"
+        aria-hidden
+      />
+      {label}
+    </span>
   );
 }
 
@@ -395,6 +415,81 @@ export function Cell({
   );
 }
 
+/* -- plan card ----------------------------------------------------------- */
+
+/**
+ * One plan, rendered the same way wherever plans appear.
+ *
+ * Billing.tsx used to build this inline and was the only place in the codebase that
+ * bypassed this file: an inline gradient-border trick, a hand-written copy of the
+ * button classes (so a change to `buttonClass` never reached it) and the one
+ * non-token colour anywhere, `text-white`. Both callers now go through here.
+ *
+ * `cta` is a node rather than a string so Billing can pass a react-router <Link>
+ * and a future real checkout can pass a form submit, without this component
+ * knowing about routing.
+ */
+export function PlanCard({
+  plan,
+  cta,
+  current = false,
+}: {
+  plan: Plan;
+  cta?: ReactNode;
+  current?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "relative flex flex-col rounded-card border bg-surface p-5 " +
+        (plan.featured
+          ? // The gradient border is a two-layer background rather than a border-image:
+            // border-image cannot follow border-radius, so the corners square off.
+            "border-transparent shadow-accent [background:linear-gradient(var(--color-surface),var(--color-surface))_padding-box,var(--vx-grad-brand)_border-box]"
+          : "border-border")
+      }
+    >
+      {plan.featured && (
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-pill bg-grad-brand px-2.5 py-0.5 font-mono text-[10px] tracking-label uppercase text-accent-ink">
+          Most clinics
+        </span>
+      )}
+      {/* Inline beside the name, not another absolutely positioned pill. Two pills
+          on the top edge of the featured card sat 2px apart and read as one
+          smudged label. */}
+      <h3 className="flex flex-wrap items-center gap-2 text-lg font-bold text-ink">
+        {plan.name}
+        {current && (
+          <span className="rounded-pill border border-ok/40 px-2 py-0.5 font-mono text-[10px] font-normal tracking-label uppercase text-ok">
+            Current
+          </span>
+        )}
+      </h3>
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <span className="font-mono text-xl font-semibold tracking-tight text-ink tabular-nums">
+          {plan.price}
+        </span>
+        <span className="font-mono text-xs text-faint">/ month</span>
+      </p>
+
+      <ul className="mt-4 flex-1 space-y-2 text-sm text-ink-dim">
+        {plan.features.map((f) => (
+          <li key={f} className="flex gap-2">
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent/70" aria-hidden />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-3 font-mono text-xs text-faint">
+        + includes <span className="text-muted">{plan.bundle}</span>
+      </p>
+
+      {cta && <div className="mt-4 flex flex-col">{cta}</div>}
+    </div>
+  );
+}
+
 /* -- modal --------------------------------------------------------------- */
 
 export function Modal({
@@ -414,14 +509,49 @@ export function Modal({
 
   useEffect(() => {
     if (!open) return;
+
+    // Remember what opened this, so focus can go back there on close. Without it,
+    // dismissing the "copy this key now" dialog drops the keyboard at the top of
+    // the document and the user has to tab back through the whole page.
+    const opener = document.activeElement as HTMLElement | null;
+
+    const FOCUSABLE =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),' +
+      ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panel.current) return;
+      // A real trap, not just an initial focus. aria-modal is advisory: it tells
+      // assistive tech the rest of the page is inert, it does not stop Tab from
+      // walking out of the dialog into the page behind it.
+      const items = Array.from(panel.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", onKey);
-    // Focus the panel so the keyboard lands inside the dialog rather than staying
-    // on whatever opened it.
-    panel.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
+    // Prefer the first control inside the dialog; fall back to the panel itself so
+    // the keyboard is never left outside.
+    const firstControl = panel.current?.querySelector<HTMLElement>(FOCUSABLE);
+    (firstControl ?? panel.current)?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -464,7 +594,15 @@ export interface Toast {
 
 export function ToastStack({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4">
+    // aria-live, because a toast is the only confirmation that a key was revoked
+    // or a job cancelled, and it disappears after five seconds. Without this a
+    // screen-reader user gets no feedback that anything happened at all.
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4"
+      role="log"
+      aria-live="polite"
+      aria-atomic="false"
+    >
       {toasts.map((t) => (
         <button
           key={t.id}

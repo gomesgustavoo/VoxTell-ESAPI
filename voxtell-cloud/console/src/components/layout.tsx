@@ -168,11 +168,18 @@ export function AppShell({
   );
 }
 
-/** Centred single-panel layout for sign-in, callback and errors. */
-export function Centered({ children }: { children: ReactNode }) {
+/**
+ * Centred single-panel layout for sign-in, callback and errors.
+ *
+ * `bare` omits the mesh. The unauthenticated screens render OUTSIDE AppShell and
+ * need their own background; the 404 route renders INSIDE it, and mounting a second
+ * fixed mesh layer there stacked the two — that route was visibly lighter than every
+ * other page in the app, which reads as a rendering fault rather than a design.
+ */
+export function Centered({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   return (
     <div className="relative flex min-h-full items-center justify-center px-4 py-16">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-mesh" aria-hidden />
+      {!bare && <div className="pointer-events-none fixed inset-0 -z-10 bg-mesh" aria-hidden />}
       <div className="w-full max-w-sm text-center">{children}</div>
     </div>
   );

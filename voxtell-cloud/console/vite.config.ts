@@ -25,6 +25,18 @@ export default defineConfig({
         // network with no outbound internet needs.
         main: resolve(here, "index.html"),
         "silent-renew": resolve(here, "silent-renew.html"),
+        // The preview harness, ONLY when explicitly asked for. Every page in this
+        // app is behind the Keycloak gate, so without the harness there is no way
+        // to look at Overview/Jobs/Keys/Billing at all — and reviewing them by
+        // server-rendering markup in Node is what let the Tailwind @theme pruning
+        // bug ship, because that path never runs Tailwind. The harness IS built
+        // with the real index.css, so it does.
+        //
+        // Gated on an env var rather than on `mode`, because Dockerfile.console
+        // does not set a mode and a production build must never emit this page.
+        ...(process.env.VX_PREVIEW === "1"
+          ? { __preview: resolve(here, "__preview.html") }
+          : {}),
       },
     },
   },

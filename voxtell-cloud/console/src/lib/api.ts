@@ -105,6 +105,22 @@ export interface Usage {
   total_gpu_seconds: number;
 }
 
+/** Mirrors api/schemas.py::VolumeResponse. A "held series" in the UI: a CT the
+ *  plugin uploaded once that further jobs can reuse until its TTL runs out. */
+export interface Volume {
+  volume_id: string;
+  state: "uploading" | "ready" | "failed";
+  content_sha256: string;
+  bytes: number;
+  voxels: number;
+  x_size: number;
+  y_size: number;
+  z_size: number;
+  jobs_run: number;
+  created_at: string;
+  expires_at: string;
+}
+
 export interface SystemState {
   queue_depth: number;
   running: number;
@@ -180,6 +196,16 @@ export const api = {
   },
   cancelJob: (token: string, id: string) =>
     request<Job>(token, `/jobs/${id}/cancel`, { method: "POST" }),
+
+  // Gated on Me.capabilities including "volumes" — the server derives that from
+  // VOXTELL_VOLUMES_ENABLED, so a console built against a flag-on API must not
+  // assume the route exists. Call it only when the capability is advertised.
+  listVolumes: (token: string, limit = 20) =>
+    request<{ volumes: Volume[] }>(token, `/volumes?limit=${limit}`),
+  deleteVolume: (token: string, id: string) =>
+    request<void>(token, `/volumes/${id}`, { method: "DELETE" }),
+
+  job: (token: string, id: string) => request<Job>(token, `/jobs/${id}`),
 
   // ?redirect=false returns {url} instead of a 307.
   //
