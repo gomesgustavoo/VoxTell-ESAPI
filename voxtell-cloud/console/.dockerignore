@@ -1,0 +1,21 @@
+# The build context for Dockerfile.console.
+#
+# WHY THIS EXISTS. `COPY . .` in the build stage would otherwise tar node_modules
+# (2,888 files / ~115 MB, fully reproducible from the lockfile that IS copied) and a
+# local dist/ that the image then overwrites anyway. The sibling project shipped a
+# rotted .dockerignore that made one image build tar 5.7 GB and get killed after 15
+# minutes; anything large landing in this directory belongs here the same day.
+node_modules
+dist
+
+# The preview harness. vite.config.ts already refuses to emit it without
+# VX_PREVIEW=1, so this is belt and braces rather than the guarantee — but there is
+# no reason for a fixtures file naming a fake clinic to be inside a shipped image
+# layer at all.
+__preview.html
+src/__preview.tsx
+
+# Local noise.
+.env*
+*.tsbuildinfo
+.DS_Store
