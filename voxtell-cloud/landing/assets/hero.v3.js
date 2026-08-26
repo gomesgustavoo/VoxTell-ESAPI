@@ -1,40 +1,71 @@
 /* ============================================================================
-   VoxTell landing — the hero viewport and the vocabulary search.
+   VoxTell landing — the hero instrument and the vocabulary search.
 
-   The page's thesis, executed rather than asserted: type what you would actually
-   say, and the contours draw on a real CT. Both features read the same two
-   assets, so the catalogue is fetched once:
+   THE THESIS OF THIS PAGE IS THE INTEGRATION, NOT THE MODEL, so the hero is the
+   screen a planner actually recognises: Eclipse's structure list, mid-review.
+   Prompts on the left, the slice in the middle, and an APPROVAL SHEET underneath
+   — one row per structure, with the structure Id the plugin would write, its
+   DicomType, its volume, its loop count on this slice, and a tick.
 
-     assets/hero-contours.v2.json   ~21 KB, real VoxTell output for one slice
-                                    plus the vocabulary that resolves to it
-     assets/hero-slice.v2.webp      ~95 KB, the windowed axial slice itself
-     assets/prompts.v1.json         ~68 KB gzipped, all 14,194 phrasings from
-                                    the model's bundled embedding bank
+   The tick is the whole argument. Untick everything and the sheet's own footer
+   says "nothing is written", because that is literally what the plugin does: it
+   plans the import, shows you the plan, and writes only what you approved. No
+   copy on the page has to claim that; the instrument demonstrates it.
 
-   WHAT CHANGED FROM v1, AND WHY IT MATTERS
-   v1 had no image. The "scan" was a radial gradient inside a wobbling ellipse
-   and the contours were harmonic perturbations of ellipses, labelled
-   `provenance: "schematic"`. Honest, and unsellable. This version draws real
-   model output over the real slice it was computed from, and the two share one
-   coordinate system by construction — the generator emits contour points in the
-   cropped raster's pixel space, so the overlay cannot drift from the picture.
+   Assets, all real:
+     assets/hero-contours.v3.json   VoxTell output for one slice, plus the
+                                    vocabulary that resolves to it and the
+                                    DicomType per structure (schema 3)
+     assets/hero-slice.v2.webp      the windowed axial slice itself
+     assets/prompts.v1.json         all 14,194 phrasings from the model's
+                                    bundled embedding bank, ~68 KB gzipped
 
-   Honesty rules still baked in:
-     - The caption comes from the JSON, driven by its `provenance` field. If
-       someone regenerates this from a different source the page re-describes
-       itself rather than keeping a stale claim.
-     - A prompt with no drawable structure is NOT a failure. Only 14 structures
-       were contoured on this one slice; the bank has 14,194 phrasings. The bank
-       is searched for real, the true count is reported, and the page says
-       VoxTell attempts unseen structures zero-shot — which the paper supports.
+   WHAT CHANGED FROM v2, AND WHY
 
-   No dependencies. The catalogue fetch is deferred and non-blocking: the
-   drawable demo works before it lands, and if it never lands only the search
-   degrades.
+   * The ledger became the approval sheet (above). v2's ledger said
+     "N structures -> written to the open plan", which is the one thing the
+     plugin never does on its own.
+   * ASSET URLS ARE RESOLVED RELATIVE TO THIS SCRIPT, not from "/assets/...".
+     Root-absolute fetches meant the demo only worked when the document was served
+     from the site root: any local preview of a parent directory, or a file:// open,
+     hit the catch and printed "The demo could not load" over an empty black box.
+     That is indistinguishable from a real outage and it cost real debugging time.
+   * The staggered draw timers are tracked and cleared. v2 scheduled i*140ms
+     timeouts and neither undraw() nor clearAll() cancelled them, so pressing
+     "clear" mid-stagger re-added rows to a sheet that had just been emptied.
+   * The opening sequence is armed by an IntersectionObserver rather than a bare
+     700ms timeout, so the one orchestrated moment on the page plays when somebody
+     is looking at it instead of before the fonts have settled.
+
+   Honesty rules, carried over unchanged:
+     - The caption comes from the JSON's own `provenance`. Regenerate from a
+       different source and the page re-describes itself rather than keeping a
+       stale claim.
+     - A prompt with no drawable structure is NOT a failure. 14 structures were
+       contoured on this one slice; the bank holds 14,194 phrasings. The bank is
+       searched for real and the true count reported.
+
+   No dependencies. The catalogue fetch is deferred: the drawable demo works
+   before it lands, and if it never lands only the search degrades.
    ========================================================================= */
 
 (function () {
   "use strict";
+
+  /* -- 0. where our assets live ------------------------------------------ */
+
+  // document.currentScript is valid during execution of a deferred classic
+  // script, which is how this is loaded. Resolving against it means the whole
+  // hero works from any mount point — the site root, a subdirectory, or
+  // `python3 -m http.server` run from inside landing/.
+  var HERE = (function () {
+    var self = document.currentScript;
+    if (self && self.src) return self.src.replace(/[^/]*$/, "");
+    return "/assets/";
+  })();
+  var asset = function (name) { return HERE + name; };
+
+  var SCHEMA = 3;
 
   var panel = document.getElementById("demoStage");
   // The SVG belongs in the .demo__stage viewport, NOT in the .demo panel wrapper.
@@ -44,8 +75,9 @@
   var input = document.getElementById("demoInput");
   var hint = document.getElementById("demoHint");
   var chipBox = document.getElementById("demoChips");
-  var ledger = document.getElementById("demoLedger");
-  var ledgerFoot = document.getElementById("demoFoot");
+  var rowBox = document.getElementById("demoRows");
+  var sheetFoot = document.getElementById("demoFoot");
+  var sheetCount = document.getElementById("demoSheetCount");
   var caption = document.getElementById("demoCaption");
   var emptyNote = document.getElementById("demoEmpty");
 
@@ -60,11 +92,25 @@
   // fill the panel at desktop width without turning it into a scroller on load.
   var SEED_COUNT = 40;
 
-  var data = null;        // hero-contours.v2.json
+  // The opening sequence. Five structures rather than three: the sheet has to look
+  // like a structure set a planner would recognise, and a cord and a vertebra are
+  // what make it read as radiotherapy rather than radiology.
+  //
+  // OPENING_TEXT IS LENGTH-CONSTRAINED, not merely chosen. The prompt field measures
+  // ~283px at the 1180px container and the mono runs ~8.4px/char, so anything past
+  // ~33 characters is silently ellipsised — the same class of bug that once
+  // truncated a seeded prompt to "spinal c". These 31 characters resolve to exactly
+  // the five structures below through the ordinary keyword path, so the field and
+  // the sheet cannot disagree about what was asked for.
+  var OPENING = ["Liver", "Spleen", "Aorta", "SpinalCord", "Vertebra_T12"];
+  var OPENING_TEXT = "liver, spleen, aorta, cord, t12";
+
+  var data = null;        // hero-contours.v3.json
   var catalogue = null;   // prompts.v1.json .prompts
-  var shown = [];         // structure names currently drawn, in draw order
-  var nodes = {};         // name -> { paths: [{outline, fill}], spec }
+  var shown = [];         // structure names on screen, in draw order
+  var nodes = {};         // name -> { paths: [{outline, fill}], spec, row, tick }
   var chipFor = {};       // structure name -> the chip buttons that target it
+  var drawTimers = [];    // every pending stagger timeout, so they can be cancelled
 
   /* -- helpers ----------------------------------------------------------- */
 
@@ -74,8 +120,20 @@
     return node;
   };
 
+  var span = function (cls, text) {
+    var node = document.createElement("span");
+    node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  };
+
   var norm = function (s) {
     return String(s || "").toLowerCase().replace(/[^a-z0-9. ]+/g, " ").replace(/\s+/g, " ").trim();
+  };
+
+  var clearTimers = function () {
+    drawTimers.forEach(window.clearTimeout);
+    drawTimers = [];
   };
 
   /* -- 1. build the viewport --------------------------------------------- */
@@ -149,7 +207,7 @@
     // width/height are the raster's, so the image maps 1:1 onto the viewBox and
     // the contour coordinates land exactly where the generator put them.
     svg.appendChild(el("image", {
-      href: data.image, x: 0, y: 0, width: W, height: H, class: "vp__img"
+      href: asset("hero-slice.v2.webp"), x: 0, y: 0, width: W, height: H, class: "vp__img"
     }));
 
     // Fills as one group, then outlines, so no fill ever paints over a
@@ -168,12 +226,17 @@
       s.paths.forEach(function (p) {
         var fill = el("path", { d: p.d, class: "contour contour__fill", fill: colour });
         var outline = el("path", { d: p.d, class: "contour", stroke: colour });
+        // --len is measured in viewBox units by the generator, and the stroke now
+        // scales with the viewBox too. v2 also set vector-effect:non-scaling-stroke,
+        // which measures the dash in SCREEN pixels — so at the 1180px container the
+        // real path was ~7% longer than its own dash and that much of every
+        // undrawn contour was visible before it had been asked for.
         outline.style.setProperty("--len", p.len);
         fills.appendChild(fill);
         lines.appendChild(outline);
         pairs.push({ outline: outline, fill: fill });
       });
-      nodes[s.name] = { paths: pairs, spec: s };
+      nodes[s.name] = { paths: pairs, spec: s, row: null, tick: null };
     });
 
     buildFurniture(svg, W, H);
@@ -213,17 +276,37 @@
     return hits.map(function (s) { return s.name; });
   }
 
-  /* -- 3. draw + the ledger ---------------------------------------------- */
+  /* -- 3. the approval sheet --------------------------------------------- */
 
-  function ledgerRow(spec) {
-    var row = document.createElement("div");
-    row.className = "ledger__row";
+  /* One row per structure the job returned, carrying the four fields a planner
+     checks before an import: the Id that will appear in the structure list, the
+     DicomType, the volume, and how many closed loops there are on this slice.
+     Everything here comes out of the JSON — nothing is computed for effect.
+
+     A <label> wraps the checkbox so the whole row is a hit target, and the
+     children are all elements: the grid that lays this out would auto-place a
+     bare text node into the next cell, which is exactly the bug that once
+     rendered #safety one word per line down a 17px ribbon. */
+  function sheetRow(spec) {
+    var row = document.createElement("label");
+    row.className = "sheet__row";
     row.setAttribute("data-name", spec.name);
+
+    var tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "sheet__tick";
+    tick.checked = true;
+    tick.setAttribute("aria-label", "Import " + spec.name);
+    tick.addEventListener("change", function () {
+      setDrawn(spec.name, tick.checked);
+      row.classList.toggle("is-skipped", !tick.checked);
+      syncFoot();
+    });
 
     // A short contour fragment rather than a swatch: the mark is a small piece of
     // the thing it stands for.
     var mark = document.createElementNS(SVG_NS, "svg");
-    mark.setAttribute("class", "ledger__mark");
+    mark.setAttribute("class", "sheet__mark");
     mark.setAttribute("viewBox", "0 0 26 12");
     mark.setAttribute("aria-hidden", "true");
     mark.appendChild(el("path", {
@@ -231,38 +314,66 @@
       stroke: "var(--vx-" + spec.token + ")"
     }));
 
-    var name = document.createElement("span");
-    name.className = "ledger__name";
-    name.textContent = spec.name;
+    var id = span("sheet__id");
+    id.appendChild(mark);
+    id.appendChild(span("sheet__name", spec.name));
 
-    var vol = document.createElement("span");
-    vol.className = "ledger__vol";
-    vol.textContent = spec.vol == null ? "—" : spec.vol.toFixed(1) + " cc";
+    row.appendChild(tick);
+    row.appendChild(id);
+    row.appendChild(span("sheet__type", spec.type || "Organ"));
+    row.appendChild(span("sheet__num", spec.vol == null ? "—" : spec.vol.toFixed(1) + " cc"));
+    row.appendChild(span("sheet__num sheet__loops", String(spec.paths.length)));
+    // Every structure here is new: the reference series ships with an empty
+    // structure set. Re-running a prompt against an existing structure is the
+    // OVERWRITE case, which the plugin also reports — it just cannot happen here.
+    row.appendChild(span("sheet__act", "NEW"));
 
-    row.appendChild(mark);
-    row.appendChild(name);
-    row.appendChild(vol);
+    nodes[spec.name].row = row;
+    nodes[spec.name].tick = tick;
     return row;
   }
 
+  function ticked() {
+    return shown.filter(function (n) {
+      var t = nodes[n].tick;
+      return !t || t.checked;
+    });
+  }
+
   function syncFoot() {
-    if (!ledgerFoot) return;
+    if (sheetCount) {
+      sheetCount.textContent = shown.length
+        ? shown.length + " returned"
+        : "awaiting prompts";
+    }
+    if (!sheetFoot) return;
+
+    var keep = ticked();
     if (!shown.length) {
-      ledgerFoot.innerHTML = "<span>Structure set</span><span>empty</span>";
+      sheetFoot.innerHTML =
+        '<span class="sheet__footnote">Nothing segmented yet</span>' +
+        '<span class="sheet__total">—</span>';
       return;
     }
-    var cc = shown.reduce(function (sum, n) {
-      return sum + (nodes[n].spec.vol || 0);
-    }, 0);
-    ledgerFoot.innerHTML =
-      "<span>" + shown.length + " structure" + (shown.length === 1 ? "" : "s") +
-      " &rarr; <b>written to the open plan</b></span>" +
-      "<span>" + cc.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " cc</span>";
+    if (!keep.length) {
+      // The point of the whole sheet, said by the sheet rather than by the copy.
+      sheetFoot.innerHTML =
+        '<span class="sheet__footnote sheet__footnote--none">Nothing ticked &mdash; ' +
+        "nothing is written</span>" +
+        '<span class="sheet__total">0 cc</span>';
+      return;
+    }
+    var cc = keep.reduce(function (sum, n) { return sum + (nodes[n].spec.vol || 0); }, 0);
+    sheetFoot.innerHTML =
+      '<span class="sheet__footnote">Import <b>' + keep.length + " of " + shown.length +
+      "</b> into the open structure set</span>" +
+      '<span class="sheet__total">' +
+      cc.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " cc</span>";
   }
 
   // Chips reflect what is actually on screen. v1 set aria-pressed="true" on click
   // and never cleared it, so after a few clicks every chip claimed to be active
-  // while the ledger told a different story.
+  // while the sheet told a different story.
   function syncChips() {
     Object.keys(chipFor).forEach(function (name) {
       chipFor[name].forEach(function (entry) {
@@ -279,31 +390,35 @@
     });
   }
 
+  function commit(name) {
+    setDrawn(name, true);
+    rowBox.appendChild(sheetRow(nodes[name].spec));
+    shown.push(name);
+    syncFoot();
+    syncChips();
+    if (emptyNote) emptyNote.hidden = true;
+  }
+
   function draw(names) {
     var fresh = names.filter(function (n) { return nodes[n] && shown.indexOf(n) === -1; });
     if (!fresh.length) return;
 
     fresh.forEach(function (n, i) {
-      var delay = reduceMotion ? 0 : i * 140;
-      window.setTimeout(function () {
-        setDrawn(n, true);
-        ledger.appendChild(ledgerRow(nodes[n].spec));
-        shown.push(n);
-        syncFoot();
-        syncChips();
-        if (emptyNote) emptyNote.hidden = true;
-      }, delay);
+      if (reduceMotion || i === 0) { commit(n); return; }
+      drawTimers.push(window.setTimeout(function () { commit(n); }, i * 140));
     });
   }
 
   function undraw(names) {
+    clearTimers();
     names.forEach(function (n) {
       var at = shown.indexOf(n);
       if (at === -1) return;
       setDrawn(n, false);
       shown.splice(at, 1);
-      var row = ledger.querySelector('[data-name="' + n + '"]');
-      if (row) row.remove();
+      if (nodes[n].row) nodes[n].row.remove();
+      nodes[n].row = null;
+      nodes[n].tick = null;
     });
     syncFoot();
     syncChips();
@@ -311,9 +426,14 @@
   }
 
   function clearAll() {
-    shown.slice().forEach(function (n) { setDrawn(n, false); });
+    clearTimers();
+    shown.slice().forEach(function (n) {
+      setDrawn(n, false);
+      nodes[n].row = null;
+      nodes[n].tick = null;
+    });
     shown = [];
-    ledger.innerHTML = "";
+    rowBox.innerHTML = "";
     syncFoot();
     syncChips();
     if (emptyNote) emptyNote.hidden = false;
@@ -469,7 +589,7 @@
       return;
     }
 
-    var frag = document.createDocumentFragment();
+    var frag2 = document.createDocumentFragment();
     matches.slice(0, 120).forEach(function (phrase) {
       var li = document.createElement("li");
       var at = phrase.indexOf(q);
@@ -478,9 +598,9 @@
       m.textContent = phrase.slice(at, at + q.length);
       li.appendChild(m);
       li.appendChild(document.createTextNode(phrase.slice(at + q.length)));
-      frag.appendChild(li);
+      frag2.appendChild(li);
     });
-    vocabResults.appendChild(frag);
+    vocabResults.appendChild(frag2);
   }
 
   var vocabTimer = null;
@@ -491,22 +611,38 @@
 
   /* -- 7. boot ----------------------------------------------------------- */
 
-  function openingSequence() {
-    // The one orchestrated moment on the page. Reduced motion still gets the
-    // result, just without the stagger. Kept short enough that the seeded value
-    // is fully readable in the input at mobile width.
-    var opening = ["Liver", "Spleen", "Aorta"];
-    input.value = "liver, spleen, aorta";
-    window.setTimeout(function () {
-      draw(opening);
-      setHint(input.value, opening);
-    }, reduceMotion ? 0 : 700);
+  /* The one orchestrated moment on the page: six structures land in the sheet,
+     one every 140ms, so the sheet is seen FILLING rather than found already full.
+     Armed by an IntersectionObserver instead of a bare timeout — on a slow
+     connection the old 700ms fired while the fonts were still swapping, i.e.
+     before anybody could see it happen. Reduced motion still gets the result,
+     it just arrives at once. */
+  function armOpeningSequence() {
+    var run = function () {
+      input.value = OPENING_TEXT;
+      draw(OPENING);
+      setHint(OPENING_TEXT, OPENING);
+    };
+
+    if (reduceMotion || !("IntersectionObserver" in window)) { run(); return; }
+
+    var once = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        once.unobserve(entry.target);
+        run();
+      });
+    }, { threshold: 0.3 });
+    once.observe(panel);
   }
 
-  if (stage && input && ledger) {
-    fetch("/assets/hero-contours.v2.json")
+  if (stage && input && rowBox) {
+    fetch(asset("hero-contours.v3.json"))
       .then(function (r) { return r.json(); })
       .then(function (json) {
+        if (json.schema !== SCHEMA) {
+          throw new Error("hero contours schema " + json.schema + ", expected " + SCHEMA);
+        }
         data = json;
         buildStage();
         buildChips();
@@ -526,7 +662,7 @@
             input.focus();
           });
         }
-        openingSequence();
+        armOpeningSequence();
       })
       .catch(function () {
         if (emptyNote) emptyNote.textContent = "The demo could not load. The product is unaffected.";
@@ -535,7 +671,7 @@
 
   // Deferred and independent: the drawable demo must not wait on 359 KB.
   var loadCatalogue = function () {
-    fetch("/assets/prompts.v1.json")
+    fetch(asset("prompts.v1.json"))
       .then(function (r) { return r.json(); })
       .then(function (json) {
         catalogue = json.prompts;

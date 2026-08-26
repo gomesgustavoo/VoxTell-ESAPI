@@ -11,7 +11,7 @@ no image, and the contours were invented.
 WHAT THIS PRODUCES
 
     assets/hero-slice.v2.webp      one windowed axial slice, 512x384, 8-bit grey
-    assets/hero-contours.v2.json   polylines for that slice, in its pixel space
+    assets/hero-contours.v3.json   polylines for that slice, in its pixel space
 
 WHERE THE DATA COMES FROM
 
@@ -103,6 +103,13 @@ MAX_POINTS = 72
 # pair — "erector spinae" draws both, "left erector spinae" draws one. The
 # vocabulary lives in this data rather than in the demo script, so regenerating
 # the figure regenerates what the demo understands.
+# Eclipse's DicomType for the structure the plugin creates. The hero's approval
+# sheet shows this column because it is one of the fields a planner checks before
+# import, so it has to be real rather than decorative. Every structure below is an
+# organ at risk, hence one default and no per-entry overrides yet; a target volume
+# would carry type="Ptv" and this is the seam for it.
+DEFAULT_DICOM_TYPE = "Organ"
+
 STRUCTURES: dict[str, dict] = {
     "liver": dict(
         name="Liver", token="s-liver", side=None,
@@ -378,6 +385,7 @@ def main() -> int:
             "token": spec["token"],
             "paths": [{"d": path_d(p), "len": path_length(p)} for p in polys],
             "vol": round(r["voxel_count"] * voxel_cc, 1),
+            "type": spec.get("type", DEFAULT_DICOM_TYPE),
             "keywords": spec["keywords"],
             "side": spec["side"],
         })
@@ -394,6 +402,9 @@ def main() -> int:
 
     slab_mm = round(spacing_z * len(series))
     out = {
+        # Bumped when the shape changes, so hero.v3.js can refuse a file it does
+        # not understand rather than rendering an approval sheet with holes in it.
+        "schema": 3,
         "provenance": "model_output",
         "caption": (
             f"Real axial CT. {len(structures)} structures contoured by VoxTell from "
@@ -416,7 +427,7 @@ def main() -> int:
         "chips": CHIPS,
         "aliases": ALIASES,
     }
-    dest = ASSETS / "hero-contours.v2.json"
+    dest = ASSETS / "hero-contours.v3.json"
     raw = json.dumps(out, separators=(",", ":"))
     dest.write_text(raw)
     print(f"wrote {dest.relative_to(HERE)}  {len(raw):,} bytes")

@@ -11,6 +11,42 @@
    change.
 
    ----------------------------------------------------------------------------
+   WHAT CHANGED IN v3, AND WHY
+
+   The page was selling the model. It is now selling the integration, because that
+   is what people are buying: they came to the hosted service because they could
+   not put a Linux GPU box inside a clinical network next to the planning
+   workstations.
+
+   * DISPLAY TYPE IS GEIST MONO. There is no third font — the mono was already
+     loaded for labels and readouts. A radiotherapy structure list IS a monospaced
+     tabular document, so setting the headline in the same face as the structure
+     Ids under it ties the page to the instrument it lives inside. It is the one
+     deliberate risk here, and it is spent in one place: the h1 and the section
+     metrics. Everything else stays Geist.
+   * THE LEDGER BECAME THE APPROVAL SHEET (`.sheet`). v2's ledger footer read
+     "N structures -> written to the open plan", which is the one thing the plugin
+     never does on its own. The sheet has a tick per row, and with nothing ticked
+     it says so — the safety claim is demonstrated by the instrument instead of
+     asserted by a paragraph.
+   * `.contour` NO LONGER SETS `vector-effect: non-scaling-stroke`. The dash
+     length comes from the generator in viewBox units; non-scaling-stroke measures
+     the dash in SCREEN pixels. At the 1180px container the demo column is ~547px
+     against a 512-unit viewBox, so every path was ~7% longer than its own dash and
+     that much of every UNDRAWN contour was visible before it was asked for.
+   * THE REDUCED-MOTION BLOCK NO LONGER DRAWS THE HERO. It set
+     `.contour { stroke-dashoffset: 0 }` and `.contour__fill { opacity: .16 }`
+     unconditionally, so anybody with reduced motion on saw all fourteen structures
+     filled at first paint: the slice was a coloured mess and typing in the prompt
+     bar visibly did nothing. The JS already handles reduced motion correctly by
+     drawing with a zero stagger; the CSS was overriding it. The matching `.no-js`
+     rules were always dead code — the SVG is built by the script, so with no
+     script there are no `.contour` elements to style.
+   * `.limits` is new: the honesty band, ported from the dentistry landing. It
+     collects the caveats that were previously repeated across #safety, the closing
+     notice and the footer.
+
+   ----------------------------------------------------------------------------
    WHAT CHANGED IN v2, AND WHY
 
    * The palette is DicomSegVR's surface stack with a cyan accent instead of its
@@ -40,11 +76,11 @@
      2  layout primitives (container, section head, hairline metric)
      3  buttons + chips
      4  nav
-     5  hero (the signature: prompt -> viewport -> ledger)
+     5  hero (the signature: prompt -> viewport -> approval sheet)
      6  provenance strip
      7  vocabulary
      8  how it works
-     9  safety / requirements
+     9  data / requirements / limits
     10  pricing
     11  faq + final cta + footer
     12  reveal + reduced motion
@@ -153,6 +189,10 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   padding-inline: clamp(1rem, 4vw, 2rem);
 }
 .container--prose { max-width: var(--vx-maxw-prose); }
+/* Between the full container and the 720px prose measure. The two reference bands
+   — the honesty panel and the FAQ — are read rather than scanned, so they want a
+   narrower column than a feature band without dropping all the way to prose. */
+.container--narrow { max-width: 900px; }
 
 .section { padding-block: clamp(3.5rem, 7vw, 5.5rem); }
 .section--alt {
@@ -325,6 +365,14 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 .nav.is-scrolled { border-bottom-color: var(--vx-border); background: rgba(10, 14, 19, 0.9); }
+/* Without backdrop-filter a 0.82-alpha bar lets the page read through it as it
+   scrolls under. Go opaque instead — the blur is the only thing that made the
+   translucency legible. Taken from dicomsegvr's stylesheet, which has this guard
+   and which this file was otherwise forked from. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav { background: var(--vx-ground); }
+  .nav.is-scrolled { background: var(--vx-ground); }
+}
 .nav__inner {
   display: flex;
   align-items: center;
@@ -408,24 +456,51 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
 @media (min-width: 1000px) {
   .hero__grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    /* Centre rather than start: the demo panel is taller than the copy column,
-       and `start` left a 250px void under the copy. */
-    align-items: center;
+    /* START, not centre. The instrument panel is ~860px tall against ~420px of
+       copy, so centring split the difference into ~200px of dead ground ABOVE the
+       headline and pushed the h1 down to y=375 — the first thing on the page sat
+       below the middle of the viewport. Aligning to the top and nudging the copy
+       down by a fixed amount lines the headline up with the CT's top edge instead,
+       which is a composition rather than an accident. The empty space is now below
+       the CTA, where the eye is already moving to the panel. */
+    align-items: start;
   }
+  .hero__grid > div:first-child { padding-top: clamp(0.5rem, 3.2vw, 2.75rem); }
 }
 
-/* The hero headline is sized to its column, not to the viewport.
-   MEASURED, not guessed: the copy column is ~521px at 1180px container, and at
-   700 weight "Type the structure." is 484px at 52px and 558px at 60px. So 52px
-   (3.25rem) is the largest size at which each sentence still occupies exactly one
-   line. At the global h1 size (84px, then 64px) it took four lines and then broke
-   mid-sentence — "structure. Get / the contour." — which is worse than smaller
-   type. The <br> in the markup puts the break at the sentence; `text-wrap:
-   balance` is off here because it competes with an explicit break. */
+/* THE ONE TYPOGRAPHIC RISK ON THE PAGE. The headline is set in Geist Mono, the
+   same face as the structure Ids in the sheet below it and the readouts inside the
+   viewport. A structure list is a monospaced tabular document; a landing page for
+   something that lives inside one should look like it belongs there rather than
+   like a SaaS brochure bolted on. No new font is loaded — the mono was already
+   here for labels.
+
+   Sized to its column, not the viewport, and MEASURED rather than guessed: mono is
+   materially wider per character than the sans, so the ceiling comes down from
+   3.25rem to 2.75rem to keep each sentence on one line at the 1180px container.
+   The <br> in the markup puts the break at the sentence; `text-wrap: balance` is
+   off because it competes with an explicit break. */
 .hero h1 {
   margin-block: 1rem 1.1rem;
-  font-size: clamp(2.25rem, 4.4vw, 3.25rem);
+  font-family: var(--vx-font-mono);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
   text-wrap: initial;
+  /* One column below 1000px, so the headline may use nearly the whole container.
+     MEASURED: Geist Mono runs 0.599em per character (31 characters at 14px measured
+     260px), and the longer line is "Approve the contour." at 20 characters. At
+     360px the container is ~328px, so 20 x 0.6 x size <= 328 caps the size at
+     27.3px — 1.85rem was 29.6px and broke it onto a third line, mid-sentence,
+     which is the exact failure the sans version of this rule was written to avoid. */
+  font-size: clamp(1.6rem, 5.2vw, 2.75rem);
+}
+@media (min-width: 1000px) {
+  /* Two columns from here, so the constraint is the COLUMN and not the viewport:
+     ~0.512 of min(1180px, 92vw), i.e. 471px at 1000px rising to 604px at 1180px+.
+     A pure vw ramp cannot express that — it under-sizes on tablet and over-sizes
+     the moment the grid splits. */
+  .hero h1 { font-size: clamp(2.2rem, 3.3vw, 2.75rem); }
 }
 .hero__sub {
   color: var(--vx-ink-dim);
@@ -457,7 +532,8 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
 .hero__note { margin-top: 0.85rem; font-size: var(--vx-text-xs); color: var(--vx-faint); max-width: 52ch; }
 .hero__note b { color: var(--vx-muted); font-weight: 600; }
 
-/* The demo panel: a prompt field, a real viewport, and the ledger it writes. */
+/* The demo panel: a prompt field, a real viewport, and the approval sheet the
+   plugin would show before writing anything. */
 .demo {
   background: var(--vx-surface);
   border: 1px solid var(--vx-border);
@@ -554,7 +630,10 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   fill: none;
   stroke-width: 1.7;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+  /* NO vector-effect here. --len is measured in viewBox units by the generator;
+     non-scaling-stroke measures the dash in screen pixels, so the path outran its
+     own dash by the viewBox-to-CSS ratio and leaked ~7% of every undrawn contour
+     at desktop width. The stroke SHOULD scale with the slice anyway. */
   stroke-dasharray: var(--len);
   stroke-dashoffset: var(--len);
   transition: stroke-dashoffset var(--vx-draw-ms) var(--vx-ease);
@@ -573,32 +652,111 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   background: linear-gradient(transparent, rgba(5, 8, 11, 0.85));
 }
 
-/* THE LEDGER. Eclipse's structure list is the most recognisable artifact in a
-   planner's day, and it is literally what VoxTell produces — a named, coloured,
-   measured list. Reused as the dashboard's job history, so the two surfaces are
-   one product rather than two. */
-.ledger { border-top: 1px solid var(--vx-border); max-height: 13.5rem; overflow-y: auto; }
-.ledger__row {
+/* ===========================================================================
+   THE APPROVAL SHEET — the signature element of this page.
+
+   Eclipse's structure list is the most recognisable artifact in a planner's day,
+   and the plugin's review step is the moment the product pays off: it plans the
+   import, shows you exactly what it would write, and writes only the rows you
+   ticked. So that is the hero, rather than a headline claim about the model.
+
+   Every column is a field a planner actually checks, and every value comes out of
+   hero-contours.v3.json:
+     Structure  the Id that appears in the structure list, TG-263 style, already
+                inside Eclipse's 16-character limit
+     Type       the DicomType the plugin sets — all fourteen here are Organ
+     Volume     cm3 over the 20-slice public reference series
+     Loops      closed boundaries on THIS slice. Not "contours": the real job
+                returns one entry per boundary per slice across the whole series,
+                and calling a per-slice number "contours" would overstate it
+     Action     NEW, because the reference series ships an empty structure set.
+                Re-running a prompt against an existing structure is the OVERWRITE
+                case, which the plugin also reports — it just cannot happen here
+
+   Untick every row and the footer says "nothing is written". That is the safety
+   argument, made by the instrument instead of by a paragraph.
+   ======================================================================== */
+.sheet { border-top: 1px solid var(--vx-border); }
+.sheet__head,
+.sheet__row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  /* Explicit, and every track minmax(0, ...) or fixed. An `auto` track's minimum
+     is its largest min-content contribution and grid items stretch, so one long
+     structure name would floor the track and widen the whole panel. */
+  grid-template-columns: 1rem minmax(0, 1fr) 3.4rem 4.6rem 2.6rem 2.6rem;
   align-items: center;
+  /* 0.7rem rather than 0.55: Volume and Loops are both right-aligned and adjacent,
+     so at the tighter gap their HEADINGS touched and read as one word. */
   gap: 0.7rem;
-  padding: 0.5rem 0.85rem;
-  border-bottom: 1px solid var(--vx-border-soft);
+  padding: 0.45rem 0.85rem;
   font-family: var(--vx-font-mono);
   font-size: var(--vx-text-xs);
 }
-.ledger__row:last-child { border-bottom: 0; }
+.sheet__head {
+  border-bottom: 1px solid var(--vx-border);
+  background: var(--vx-surface-2);
+  color: var(--vx-faint);
+  letter-spacing: var(--vx-tracking-label);
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+.sheet__head span:nth-child(4),
+.sheet__head span:nth-child(5) { text-align: right; }
+
+.sheet__body { max-height: 12.5rem; overflow-y: auto; }
+
+.sheet__row {
+  border-bottom: 1px solid var(--vx-border-soft);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.sheet__row:last-child { border-bottom: 0; }
+.sheet__row:hover { background: var(--vx-surface-2); }
+/* An unticked row stays legible but reads as excluded — it is a decision the
+   visitor made, not an error. */
+.sheet__row.is-skipped { color: var(--vx-faint); }
+.sheet__row.is-skipped .sheet__name { color: var(--vx-faint); text-decoration: line-through; }
+.sheet__row.is-skipped .sheet__act { color: var(--vx-faint); border-color: transparent; }
+
+/* Native checkbox, accent-coloured. A hand-rolled one would need its own focus
+   ring, its own keyboard handling and its own indeterminate state; accent-color
+   gets all three for one line. */
+.sheet__tick {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--vx-accent);
+  cursor: pointer;
+}
+
+.sheet__id { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
 /* A short contour fragment, not a swatch — the mark is the thing it represents. */
-.ledger__mark { width: 26px; height: 12px; overflow: visible; }
-.ledger__mark path { fill: none; stroke-width: 1.7; stroke-linecap: round; }
+.sheet__mark { width: 22px; height: 10px; flex: none; overflow: visible; }
+.sheet__mark path { fill: none; stroke-width: 1.7; stroke-linecap: round; }
 /* Wraps rather than truncating. `nowrap` + ellipsis cut real structure names,
    and a clipped name in a structure list is worse than a second line. */
-.ledger__name { color: var(--vx-ink); overflow-wrap: anywhere; }
-.ledger__vol { color: var(--vx-muted); font-feature-settings: "tnum"; white-space: nowrap; }
-.ledger__foot {
+.sheet__name { color: var(--vx-ink); overflow-wrap: anywhere; }
+.sheet__type { color: var(--vx-muted); }
+.sheet__num {
+  color: var(--vx-muted);
+  text-align: right;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+.sheet__act {
+  justify-self: end;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--vx-radius-sm);
+  color: var(--vx-ok);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+}
+
+.sheet__foot {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.85rem;
   border-top: 1px solid var(--vx-border);
@@ -607,7 +765,22 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   font-size: var(--vx-text-xs);
   color: var(--vx-faint);
 }
-.ledger__foot b { color: var(--vx-accent); font-weight: 500; }
+.sheet__footnote b { color: var(--vx-accent); font-weight: 500; }
+/* The nothing-ticked state. Deliberately not red: refusing to write is the
+   correct behaviour, not an error. */
+.sheet__footnote--none { color: var(--vx-ink-dim); }
+.sheet__total { color: var(--vx-muted); font-feature-settings: "tnum"; white-space: nowrap; }
+
+@media (max-width: 420px) {
+  /* Type and Loops are the two columns a phone can afford to lose: the Id, the
+     volume and the tick are what the row is for. */
+  .sheet__head,
+  .sheet__row { grid-template-columns: 1rem minmax(0, 1fr) 4.2rem 2.6rem; }
+  .sheet__type,
+  .sheet__loops { display: none; }
+  .sheet__head span:nth-child(4) { display: none; }
+  .sheet__head span:nth-child(5) { display: none; }
+}
 
 .hero__caption {
   margin-top: 0.7rem;
@@ -684,6 +857,12 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   align-content: flex-start;
   max-height: 14rem;
   overflow-y: auto;
+  /* The cap cuts the last visible row through its own text, which reads as a
+     rendering fault rather than as "there is more". Fade the bottom edge so the
+     clip is obviously a scroll affordance. -webkit- included: Safari still needs
+     the prefix for mask-image. */
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 2rem), transparent);
 }
 .vocab__results li {
   font-family: var(--vx-font-mono);
@@ -727,30 +906,90 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   font-feature-settings: "tnum";
 }
 
-/* -- 8. how it works — the one genuinely ordered section ---------------- */
+/* Head left, procedure right. The steps cap their own measure at 68ch, so a
+   full-width single column left the right half of the biggest band on the page
+   empty. This is the only two-up band here, which suits the one section that is
+   doing the selling. Below 1000px it collapses to the natural stacked order. */
+.eclipse__grid { display: grid; gap: clamp(1.5rem, 3vw, 2.5rem); }
+@media (min-width: 1000px) {
+  .eclipse__grid {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    align-items: start;
+  }
+  /* The head stops scrolling away while the reader is still in the procedure. */
+  .eclipse__grid .section-head { position: sticky; top: 5.5rem; margin-bottom: 0; }
+}
 
-.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
-@media (min-width: 880px) { .flow { grid-template-columns: repeat(4, 1fr); } }
+/* The engine statement — model-agnosticism and what is actually billed. Given a
+   dedicated class rather than reusing .pricing__note, which is deliberately faint
+   fine print: this is a claim the reader is meant to read. */
+.engine__note {
+  margin-top: 1.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--vx-accent-line);
+  color: var(--vx-muted);
+  font-size: var(--vx-text-sm);
+  line-height: 1.65;
+  max-width: 78ch;
+}
+.engine__note b { color: var(--vx-ink-dim); font-weight: 600; }
+
+/* -- 8. in Eclipse — the one genuinely ordered section ------------------
+   A VERTICAL PROCEDURE, NOT A CARD GRID.
+
+   v2 laid these out as `repeat(4, 1fr)` cards. With five steps that grid puts
+   four on the first row and orphans the fifth against three empty columns, which
+   reads as an unfinished page. Widening to five columns would give each step 236px
+   — four words a line for a procedure somebody is meant to follow.
+
+   So it is a list, laid out like the procedure it describes: the ordinal in a
+   fixed left gutter, a hairline between steps, and the copy free to use a readable
+   measure. The numbering is earned here and nowhere else on the page — these
+   really do happen in this order. It also gives the biggest band on the page its
+   own shape instead of a third variation on the three-card feature row.
+   ---------------------------------------------------------------------- */
+
+.flow { list-style: none; margin: 0; padding: 0; }
 .flow__step {
-  background: var(--vx-surface);
-  border: 1px solid var(--vx-border);
-  border-radius: var(--vx-radius);
-  padding: 1.25rem;
-  position: relative;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  display: grid;
+  /* Fixed gutter, and minmax(0) on the copy track: an `auto` track's minimum is
+     its largest min-content contribution, so one long <code> could push the whole
+     row wider than the container. */
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0 1.25rem;
+  padding-block: 1.5rem;
+  border-top: 1px solid var(--vx-border-soft);
 }
-.flow__step:hover { border-color: var(--vx-accent-line); transform: translateY(-3px); }
-.flow__step--final { border-color: var(--vx-accent-line); box-shadow: var(--vx-shadow-accent); }
-.flow__n {
+.flow__step:first-child { border-top: 0; padding-top: 0.25rem; }
+
+.flow__i {
+  grid-row: 1 / span 2;
   font-family: var(--vx-font-mono);
-  font-size: 0.72rem;
+  font-size: var(--vx-text-sm);
   color: var(--vx-accent);
-  letter-spacing: var(--vx-tracking-label);
-  text-transform: uppercase;
-  opacity: 0.9;
+  font-feature-settings: "tnum";
+  /* Optically aligned to the h3's cap height rather than its line box. */
+  padding-top: 0.2rem;
 }
-.flow__step h3 { margin-block: 0.55rem 0.4rem; }
-.flow__step p { color: var(--vx-muted); font-size: var(--vx-text-sm); }
+.flow__step h3 {
+  margin: 0 0 0.35rem;
+  font-size: var(--vx-text-md);
+  letter-spacing: -0.015em;
+}
+.flow__step p {
+  margin: 0;
+  color: var(--vx-muted);
+  font-size: var(--vx-text-sm);
+  /* A measure, not the full 1180px container. */
+  max-width: 68ch;
+}
+
+@media (max-width: 560px) {
+  /* The gutter is worth less than the copy width on a phone: the ordinal moves
+     inline above the heading. */
+  .flow__step { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .flow__i { grid-row: auto; padding-top: 0; display: block; margin-bottom: 0.3rem; }
+}
 
 /* -- 9. safety / requirements ------------------------------------------- */
 
@@ -766,6 +1005,11 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   border-top: 1px solid var(--vx-border-soft);
   color: var(--vx-ink-dim);
   font-size: var(--vx-text-sm);
+  /* A MEASURE, not the container. At the full 1180px these ran ~110 characters
+     a line, which is roughly twice a comfortable measure — the hairline rules
+     still span the full width, so the band keeps its shape while the copy stays
+     readable. */
+  max-width: 82ch;
 }
 .facts li:first-child { border-top: 0; }
 .facts li::before {
@@ -797,6 +1041,46 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
   font-size: var(--vx-text-sm);
 }
 .notice b { color: var(--vx-ink); }
+
+/* ===========================================================================
+   THE HONESTY BAND. Ported from the dentistry landing, where it earns its place:
+   a section that states what the product does NOT do, sitting between the
+   features and the price.
+
+   It is also a consolidation. These caveats used to be scattered — three separate
+   "review before clinical use" sentences across #safety, the closing notice and
+   the footer, plus reproducibility buried in an FAQ answer. One band says each of
+   them once.
+
+   Bordered with a hairline and a mono label rather than the amber the dentistry
+   page uses, because THERE IS NO --vx-warn TOKEN IN THIS DESIGN SYSTEM and that
+   is deliberate (see design/tokens.css). An unused token gets used; a token
+   invented for one border gets used for a job it was not chosen for.
+   ======================================================================== */
+.limits__panel {
+  padding: clamp(1.25rem, 3.5vw, 2rem);
+  background: var(--vx-surface);
+  border: 1px solid var(--vx-border);
+  border-left: 2px solid var(--vx-accent-line);
+  border-radius: var(--vx-radius);
+}
+.limits__list { list-style: none; margin: 0; padding: 0; }
+.limits__list li {
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--vx-hairline);
+  color: var(--vx-muted);
+  font-size: var(--vx-text-sm);
+  line-height: 1.6;
+  max-width: 78ch;
+}
+.limits__list li:first-child { border-top: 0; padding-top: 0; }
+.limits__list li:last-child { padding-bottom: 0; }
+.limits__list b {
+  display: block;
+  color: var(--vx-ink-dim);
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
 
 /* -- 10. pricing --------------------------------------------------------- */
 
@@ -1016,10 +1300,10 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
 }
 .reveal.is-visible { opacity: 1; transform: none; }
 
-/* No-JS must never leave the page blank. */
+/* No-JS must never leave the page blank. There is deliberately nothing here about
+   `.contour`: the hero SVG is built by hero.v3.js, so with no script there are no
+   contour elements to reveal, and the two rules that used to sit here were dead. */
 .no-js .reveal { opacity: 1; transform: none; }
-.no-js .contour { stroke-dashoffset: 0; }
-.no-js .contour__fill { opacity: 0.16; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -1029,8 +1313,12 @@ code, .mono, kbd { font-family: var(--vx-font-mono); font-feature-settings: "tnu
     transition-duration: 0.01ms !important;
   }
   .reveal { opacity: 1; transform: none; }
-  .contour { stroke-dashoffset: 0; }
-  .contour__fill { opacity: 0.16; }
+  /* NOTHING about `.contour` belongs here. Revealing every contour at first paint
+     is what made the hero look broken under reduced motion: all fourteen
+     structures appeared filled before a prompt existed, so the slice read as a
+     coloured mess and the prompt bar appeared inert. hero.v3.js already honours
+     the preference — it draws the same structures with a zero stagger instead of
+     140ms apart — and the universal rule above collapses the transition. */
 }
 
 /* -- 13. legal + install pages ------------------------------------------ */

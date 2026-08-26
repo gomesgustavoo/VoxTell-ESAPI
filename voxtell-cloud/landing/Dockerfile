@@ -10,7 +10,7 @@
 # landing image is that marketing copy can change without an npm install, a Vite
 # build, or a rollout of the signed-in SPA.
 #
-# The generator scripts (gen-hero-contours.py) and the token source are NOT copied:
+# The generator scripts (gen-hero-assets.py, gen-og-card.py) and the token source are NOT copied:
 # their outputs live in assets/ and are committed, so the image stays a pure
 # artifact of what is actually served.
 
@@ -26,9 +26,9 @@ COPY download/ /usr/share/nginx/html/download/
 # the page degrades silently otherwise (the hero just never draws, the vocabulary
 # search never populates), which is the hardest kind of regression to notice.
 RUN set -eu; \
-    for f in assets/tokens.v2.css assets/styles.v2.css assets/main.v2.js \
-             assets/hero.v2.js assets/hero-contours.v2.json assets/prompts.v1.json \
-             assets/hero-slice.v2.webp; do \
+    for f in assets/tokens.v2.css assets/styles.v3.css assets/main.v2.js \
+             assets/hero.v3.js assets/hero-contours.v3.json assets/prompts.v1.json \
+             assets/hero-slice.v2.webp assets/og-card.v3.png; do \
       test -s "/usr/share/nginx/html/$f" || { echo "MISSING OR EMPTY: $f" >&2; exit 1; }; \
     done; \
     for f in Geist-latin.woff2 GeistMono-latin.woff2; do \
