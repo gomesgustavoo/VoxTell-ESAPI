@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     VOXTELL_MAX_VOXELS: int = 512 * 512 * 1024
     VOXTELL_MAX_PROMPTS: int = 16
     VOXTELL_PROMPT_MAX_CHARS: int = 200
+    # Whether the catalog-addressed models (CADS, and later custom nnU-Nets) can
+    # actually be RUN by this deployment's worker, as opposed to merely appearing in
+    # the catalog. Default true, so a properly provisioned deployment behaves as
+    # written; set false where the API has been rolled forward but the worker still
+    # only carries the prompt model, and a structure-addressed job would be accepted,
+    # queued, and come back with nothing segmented. A refusal at submit time naming
+    # the reason is worth far more than an empty result two minutes later.
+    VOXTELL_CATALOG_MODELS_ENABLED: bool = True
     # Cap on structure ids per job for the catalog-addressed models. The whole
     # CADS set is 167, so this has to clear that with room for custom nnU-Nets;
     # it exists to bound the request, not to ration structures.

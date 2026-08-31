@@ -39,6 +39,19 @@ def conflict(error: str, message: str) -> HTTPException:
     )
 
 
+def service_unavailable(error: str, message: str) -> HTTPException:
+    """503 — the request is valid and this deployment cannot serve it *yet*.
+
+    Distinct from 409: nothing about the caller's state is wrong, and retrying the
+    same request will work once the deployment is provisioned. The plugin shows the
+    message verbatim, so it has to say what is missing.
+    """
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={"error": error, "message": message},
+    )
+
+
 def payload_too_large(error: str, message: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,

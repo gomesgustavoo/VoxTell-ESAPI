@@ -28,6 +28,7 @@ from ..errors import (
     not_found,
     payload_too_large,
     quota_exceeded,
+    service_unavailable,
 )
 from ..estimate import wait_estimate_seconds
 from ..models import Job, UsageEvent, User, Volume, utcnow
@@ -227,6 +228,21 @@ async def create_job(
     upload step, so the response carries an empty ``upload`` list. With
     ``geometry`` + ``upload_bytes`` this behaves exactly as it always has.
     """
+    # Refuse structure-addressed work this deployment cannot actually run, before a
+    # GPU slot is committed. The catalog is served whether or not the weights are
+    # deployed — the plugin needs it to render its picker at all — so without this
+    # guard a planner picks a protocol, waits for an upload and a queue position, and
+    # gets a job that completed with nothing in it. Naming the models makes it
+    # actionable rather than mysterious.
+    if body.structure_ids and not settings.VOXTELL_CATALOG_MODELS_ENABLED:
+        raise service_unavailable(
+            "catalog_models_unavailable",
+            "This deployment cannot run catalog models yet ("
+            + ", ".join(body.resolved_models)
+            + "). Free-text prompts work; ask the administrator to deploy the "
+            "weights for these models.",
+        )
+
     if body.volume_id is not None:
         return await _create_job_from_volume(body, user, session)
     return await _create_job_inline(body, user, session)

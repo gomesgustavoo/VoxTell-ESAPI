@@ -503,3 +503,27 @@ def test_duplicate_protocol_keys_are_refused(tmp_path):
 def test_unknown_protocol_key_is_none_not_a_guess():
     assert catalog().protocol("no_such_protocol") is None
     assert catalog().protocol_structure_ids("no_such_protocol") == []
+
+
+# --------------------------------------------------------------------------- #
+# Serving a catalog the worker cannot run
+# --------------------------------------------------------------------------- #
+
+
+def test_catalog_models_can_be_advertised_but_refused():
+    """The API may be rolled forward before the weights are.
+
+    The catalog is served whether or not the models are deployed, because the plugin
+    needs it to render its picker at all. VOXTELL_CATALOG_MODELS_ENABLED=false is
+    what stops a structure-addressed job being accepted, queued and completed with
+    nothing in it — a refusal naming the models is worth more than an empty result
+    two minutes later. Default stays true so a provisioned deployment is unaffected.
+    """
+    from api.config import Settings
+    from api.errors import service_unavailable
+
+    assert Settings().VOXTELL_CATALOG_MODELS_ENABLED is True
+
+    exc = service_unavailable("catalog_models_unavailable", "cads_556 is not deployed")
+    assert exc.status_code == 503
+    assert exc.detail["error"] == "catalog_models_unavailable"
