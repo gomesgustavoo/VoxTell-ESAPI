@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using VoxTell_Interface.ViewModels;
 
 namespace VoxTell_Interface.Views
@@ -58,6 +59,20 @@ namespace VoxTell_Interface.Views
         /// <summary>Hairlines, borders, the unfilled part of a track.</summary>
         public static readonly Brush Edge = Frozen(0x32, 0x37, 0x3E);
 
+        /// <summary>
+        /// A floating layer: dropdown lists and the account menu.
+        ///
+        /// One step ABOVE <see cref="Panel"/> rather than below it, with a shadow, because
+        /// the only honest cue that a surface floats over the panel is that it is lighter
+        /// than what it covers. A popup painted in the card colour reads as part of the card
+        /// and the planner cannot tell what is dismissable.
+        /// </summary>
+        public static readonly Brush Overlay = Frozen(0x2A, 0x2E, 0x35);
+
+        /// <summary>Review row under the pointer. Barely there on purpose: it tracks the
+        /// pointer, so anything stronger flickers across a table being read.</summary>
+        public static readonly Brush Hover = Frozen(0x24, 0x28, 0x2E);
+
         /// <summary>Primary text.</summary>
         public static readonly Brush Ink = Frozen(0xE8, 0xEA, 0xED);
 
@@ -83,6 +98,13 @@ namespace VoxTell_Interface.Views
 
         /// <summary>Disabled control fill — below the card surface, so it recedes.</summary>
         public static readonly Brush ControlDisabled = Frozen(0x20, 0x23, 0x28);
+
+        /// <summary>
+        /// The drop shadow under a floating layer. Frozen for the same reason the brushes
+        /// are: an <see cref="System.Windows.Freezable"/> touched from a later
+        /// <c>Script.Execute</c>'s dispatcher throws unless it is frozen.
+        /// </summary>
+        public static readonly Effect OverlayShadow = FrozenShadow();
 
         // --- pens ---------------------------------------------------------------------- //
 
@@ -110,7 +132,16 @@ namespace VoxTell_Interface.Views
         public static readonly FontFamily MonoFamily = ResolveFamily(
             new[] { "Consolas", "Cascadia Mono", "Lucida Console" });
 
-        public const double SizeDisplay = 20;   // signed-in identity, step titles
+        /// <summary>
+        /// The product mark in the header, and the largest type in the panel.
+        ///
+        /// It used to be 20 px — and the string at 20 px was the operator's email address,
+        /// which made the account the loudest thing on a screen whose job is to show what
+        /// will be written into a patient. The mark is 15 and the account is 12.
+        /// </summary>
+        public const double SizeWordmark = 15;
+
+        public const double SizeDisplay = 20;   // the device code card only
         public const double SizeSection = 13;   // section headings (semibold)
         public const double SizeBody = 13;      // everything else
         public const double SizeSmall = 12;     // captions, secondary detail
@@ -152,6 +183,17 @@ namespace VoxTell_Interface.Views
 
         public const double ButtonHeight = 30;
 
+        /// <summary>Compact controls in the header and inside a review row.</summary>
+        public const double ControlHeightSmall = 24;
+
+        /// <summary>Rows in the structure list. Virtualised, so this is also the item height.</summary>
+        public const double ListRowHeight = 24;
+
+        public static readonly Thickness PillPadding = new Thickness(7, 2, 7, 2);
+        public static readonly Thickness MenuItemPadding = new Thickness(12, 6, 12, 6);
+        public static readonly Thickness SelectPadding = new Thickness(8, 3, 6, 3);
+
+
         // --- helpers ------------------------------------------------------------------- //
 
         /// <summary>Maps a status severity onto a brush. Replaces an IValueConverter.</summary>
@@ -165,6 +207,20 @@ namespace VoxTell_Interface.Views
                 case StatusSeverity.Working: return Ink;
                 default: return InkMuted;
             }
+        }
+
+        private static Effect FrozenShadow()
+        {
+            var shadow = new DropShadowEffect
+            {
+                Color = Colors.Black,
+                Direction = 270,
+                ShadowDepth = 2,
+                BlurRadius = 10,
+                Opacity = 0.55,
+            };
+            shadow.Freeze();
+            return shadow;
         }
 
         private static SolidColorBrush Frozen(byte r, byte g, byte b)

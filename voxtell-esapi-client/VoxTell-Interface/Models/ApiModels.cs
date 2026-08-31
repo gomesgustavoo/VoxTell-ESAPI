@@ -95,6 +95,16 @@ namespace VoxTell_Interface.Models
         [JsonProperty("outstanding")] public int Outstanding { get; set; }
         [JsonProperty("max_outstanding")] public int MaxOutstanding { get; set; }
 
+        /// <summary>
+        /// Hex keying material for the QA lineage HMACs, scoped to this tenant.
+        ///
+        /// Issued here rather than generated on the workstation because two
+        /// workstations in the same clinic must derive the *same* key for the same
+        /// series, or run 2 on a different machine would never find run 1. It is
+        /// held with the tokens in the DPAPI store and is never logged.
+        /// </summary>
+        [JsonProperty("lineage_secret")] public string LineageSecret { get; set; }
+
         /// <summary>Whatever identifies the caller in the UI, preferring the friendlier field.</summary>
         public string DisplayName
         {
@@ -164,13 +174,58 @@ namespace VoxTell_Interface.Models
     public class JobCreateRequest
     {
         [JsonProperty("geometry")] public Geometry Geometry { get; set; }
-        [JsonProperty("prompts")] public string[] Prompts { get; set; }
+
+        /// <summary>
+        /// Free text for a prompt model. Mutually exclusive with
+        /// <see cref="StructureIds"/>; the server rejects both together.
+        ///
+        /// <c>NullValueHandling.Ignore</c> on this and every field below is not a
+        /// tidiness choice. The server validates "exactly one of prompts /
+        /// structure_ids", so a serialised <c>"prompts": null</c> alongside real
+        /// structure ids would be ambiguous at best. Omitting empty fields keeps
+        /// the request the same shape the already-approved plugin sends.
+        /// </summary>
+        [JsonProperty("prompts", NullValueHandling = NullValueHandling.Ignore)]
+        public string[] Prompts { get; set; }
 
         /// <summary>Exact byte length of the gzip stream about to be uploaded.</summary>
         [JsonProperty("upload_bytes")] public long UploadBytes { get; set; }
 
         [JsonProperty("keep_largest")] public bool KeepLargest { get; set; }
         [JsonProperty("want_mask")] public bool WantMask { get; set; }
+
+        // --- model addressing --------------------------------------------------- //
+
+        /// <summary>
+        /// Prompt-model key. Omitted means the server default, which is what keeps
+        /// every plugin already approved in a clinic working untouched.
+        /// </summary>
+        [JsonProperty("model", NullValueHandling = NullValueHandling.Ignore)]
+        public string Model { get; set; }
+
+        /// <summary>
+        /// Catalog structure ids. The server derives which models to run from
+        /// these — the client never names a model alongside them, so a request
+        /// whose model and structures disagree is unrepresentable.
+        /// </summary>
+        [JsonProperty("structure_ids", NullValueHandling = NullValueHandling.Ignore)]
+        public string[] StructureIds { get; set; }
+
+        // --- QA lineage --------------------------------------------------------- //
+        // Opaque HMACs from LineageKeys. No DICOM UID, patient name or id is ever
+        // placed on this request; see Models/QaModels.cs for the rule.
+
+        [JsonProperty("series_key", NullValueHandling = NullValueHandling.Ignore)]
+        public string SeriesKey { get; set; }
+
+        [JsonProperty("for_key", NullValueHandling = NullValueHandling.Ignore)]
+        public string ForKey { get; set; }
+
+        [JsonProperty("scanner_key", NullValueHandling = NullValueHandling.Ignore)]
+        public string ScannerKey { get; set; }
+
+        /// <summary>Record this job's output as the QA baseline for the series.</summary>
+        [JsonProperty("baseline")] public bool Baseline { get; set; }
     }
 
     public class UploadPart
@@ -283,22 +338,88 @@ namespace VoxTell_Interface.Models
 
     public class InferenceResult
     {
+        /// <summary>Set for a prompt model; null for a catalog-addressed one.</summary>
         [JsonProperty("prompt")] public string Prompt { get; set; }
+
+        /// <summary>Catalog structure id, set for a catalog-addressed model (schema 3).</summary>
+        [JsonProperty("structure_id")] public string StructureId { get; set; }
+
+        /// <summary>Which model produced this result (schema 3).</summary>
+        [JsonProperty("model")] public string Model { get; set; }
 
         /// <summary>Non-zero voxels in the whole 3-D mask, unaffected by the contour filter.</summary>
         [JsonProperty("voxel_count")] public long VoxelCount { get; set; }
 
         [JsonProperty("contours")] public List<ContourSlice> Contours { get; set; }
+
+        /// <summary>
+        /// What to call this row in the review list: the structure id for a
+        /// catalog model, the prompt for a prompt model.
+        /// </summary>
+        public string Label
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(Prompt)) return Prompt;
+                return StructureId ?? string.Empty;
+            }
+        }
     }
 
-    /// <summary>The un-gzipped <c>result.json.gz</c>.</summary>
+    /// <summary>Identity of one model that contributed to a result (schema 3).</summary>
+    public class ModelIdentity
+    {
+        [JsonProperty("key")] public string Key { get; set; }
+        [JsonProperty("display_name")] public string DisplayName { get; set; }
+        [JsonProperty("kind")] public string Kind { get; set; }
+        [JsonProperty("task")] public string Task { get; set; }
+        [JsonProperty("version")] public string Version { get; set; }
+        [JsonProperty("weights_variant")] public string WeightsVariant { get; set; }
+
+        /// <summary>Recorded per job: which licence produced these contours.</summary>
+        [JsonProperty("weights_licence")] public string WeightsLicence { get; set; }
+    }
+
+    /// <summary>
+    /// The un-gzipped <c>result.json.gz</c>.
+    ///
+    /// Schema 3 added <see cref="Models"/> and <see cref="StructureIds"/>.
+    /// <see cref="Model"/> stays a plain string so a schema-2 reader — that is,
+    /// any plugin version already approved in a clinic — keeps working; Newtonsoft
+    /// ignores the keys it does not know, which is what makes additive changes
+    /// free and renames expensive.
+    /// </summary>
     public class ResultEnvelope
     {
         [JsonProperty("schema")] public int Schema { get; set; }
         [JsonProperty("job_id")] public string JobId { get; set; }
         [JsonProperty("model")] public string Model { get; set; }
+        [JsonProperty("models")] public List<ModelIdentity> Models { get; set; }
         [JsonProperty("prompts")] public List<string> Prompts { get; set; }
+        [JsonProperty("structure_ids")] public List<string> StructureIds { get; set; }
         [JsonProperty("results")] public List<InferenceResult> Results { get; set; }
+
+        /// <summary>
+        /// A one-line provenance string for the review panel and, later, the PDF.
+        /// Falls back to <see cref="Model"/> so a schema-2 envelope still reads
+        /// sensibly.
+        /// </summary>
+        public string Provenance
+        {
+            get
+            {
+                if (Models == null || Models.Count == 0) return Model ?? "unknown model";
+                var parts = new List<string>();
+                foreach (ModelIdentity m in Models)
+                {
+                    string name = !string.IsNullOrEmpty(m.DisplayName) ? m.DisplayName : m.Key;
+                    parts.Add(string.IsNullOrEmpty(m.WeightsLicence)
+                        ? name
+                        : name + " (" + m.WeightsLicence + ")");
+                }
+                return string.Join(", ", parts);
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------- //

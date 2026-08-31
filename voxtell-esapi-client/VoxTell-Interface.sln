@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxTell-Interface", "VoxTel
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxTell-Interface.Harness", "VoxTell-Interface.Harness\VoxTell-Interface.Harness.csproj", "{7F2C1E84-3A6D-4B95-9C11-8D5E4A2F6B03}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxTell-Interface.Preview", "VoxTell-Interface.Preview\VoxTell-Interface.Preview.csproj", "{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{7F2C1E84-3A6D-4B95-9C11-8D5E4A2F6B03}.Debug|x64.Build.0 = Debug|x64
 		{7F2C1E84-3A6D-4B95-9C11-8D5E4A2F6B03}.Release|x64.ActiveCfg = Release|x64
 		{7F2C1E84-3A6D-4B95-9C11-8D5E4A2F6B03}.Release|x64.Build.0 = Release|x64
+		{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}.Debug|x64.ActiveCfg = Debug|x64
+		{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}.Debug|x64.Build.0 = Debug|x64
+		{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}.Release|x64.ActiveCfg = Release|x64
+		{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

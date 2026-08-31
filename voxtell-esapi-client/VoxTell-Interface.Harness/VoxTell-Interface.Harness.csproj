@@ -76,6 +76,22 @@
     <Compile Include="..\VoxTell-Interface\Services\VoxelEncoder.cs">
       <Link>Shared\VoxelEncoder.cs</Link>
     </Compile>
+    <!-- Catalog, lineage keys and the existing-structure matcher. All three are pure
+         value-in/value-out, which is why they can be exercised here without Eclipse:
+         the alias contract and the skip rules are exactly the logic that fails
+         silently in the field, so they are the logic most worth testing offline. -->
+    <Compile Include="..\VoxTell-Interface\Models\ModelCatalog.cs">
+      <Link>Shared\ModelCatalog.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Models\QaModels.cs">
+      <Link>Shared\QaModels.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\LineageKeys.cs">
+      <Link>Shared\LineageKeys.cs</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\StructureAutoDetect.cs">
+      <Link>Shared\StructureAutoDetect.cs</Link>
+    </Compile>
     <Compile Include="..\VoxTell-Interface\Services\VoxTellApiClient.cs">
       <Link>Shared\VoxTellApiClient.cs</Link>
     </Compile>
@@ -95,6 +111,7 @@
       <Link>Shared\Auth\AuthService.cs</Link>
     </Compile>
     <Compile Include="Program.cs" />
+    <Compile Include="SelfTest.cs" />
     <Compile Include="SyntheticVolumeSource.cs" />
     <Compile Include="AffineCheck.cs" />
   </ItemGroup>

@@ -77,6 +77,19 @@ namespace VoxTell_Interface.Services
         /// </summary>
         public List<StructurePlan> BuildPlan(List<InferenceResult> results)
         {
+            return BuildPlan(results, null);
+        }
+
+        /// <summary>
+        /// Build the review rows, naming each one through <paramref name="naming"/>.
+        ///
+        /// The delegate is how a clinic protocol reaches this file without the catalog
+        /// coming with it: it answers "what is this row called, what id does it write, what
+        /// type and colour" per result, and null means "as before".
+        /// </summary>
+        public List<StructurePlan> BuildPlan(
+            List<InferenceResult> results, Func<InferenceResult, PlanNaming> naming)
+        {
             _gate.AssertOnEsapiThread("Enumerating structures");
 
             var plans = new List<StructurePlan>();
@@ -106,11 +119,29 @@ namespace VoxTell_Interface.Services
                 int[] occupied = valid
                     .Select(c => c.ZIndex).Distinct().OrderBy(z => z).ToArray();
 
-                Structure existing = _structureSet == null ? null : FindStructure(result.Prompt);
+                PlanNaming named = naming == null ? null : naming(result);
+
+                // result.Label is the prompt for a prompt model and the catalog structure id
+                // for a catalog-addressed one. This used to read result.Prompt directly,
+                // which is null on every CADS result — so the row had no name and the id was
+                // sanitised from nothing.
+                string label = named != null && !string.IsNullOrWhiteSpace(named.DisplayName)
+                    ? named.DisplayName
+                    : result.Label;
+
+                string desired = named != null && !string.IsNullOrWhiteSpace(named.WriteAs)
+                    ? named.WriteAs
+                    : label;
+
+                string dicomType = named != null && !string.IsNullOrWhiteSpace(named.DicomType)
+                    ? named.DicomType.Trim().ToUpperInvariant()
+                    : "CONTROL";
+
+                Structure existing = _structureSet == null ? null : FindStructure(desired);
 
                 string id = existing != null
                     ? existing.Id
-                    : UniqueStructureId(result.Prompt, taken);
+                    : UniqueStructureId(desired, taken);
 
                 if (existing == null)
                     taken.Add(id);
@@ -124,15 +155,18 @@ namespace VoxTell_Interface.Services
                 }
                 else
                 {
-                    color = StructurePalette.Assign(result.Prompt, usedColors);
+                    color = named != null && named.Colour.HasValue
+                        ? named.Colour.Value
+                        : StructurePalette.Assign(label, usedColors);
                     usedColors.Add(color);
                 }
 
                 var plan = new StructurePlan
                 {
-                    Prompt = result.Prompt,
+                    Prompt = label,
+                    ResultKey = result.Label,
                     StructureId = id,
-                    DicomType = "CONTROL",
+                    DicomType = dicomType,
                     ExistingId = existing == null ? null : existing.Id,
                     Color = color,
                     VoxelCount = result.VoxelCount,
@@ -157,7 +191,7 @@ namespace VoxTell_Interface.Services
                         ? string.Format(
                             "Found {0:N0} voxels but no contour large enough to write — " +
                             "importing this would create an empty structure.", result.VoxelCount)
-                        : "Nothing segmented for this prompt.";
+                        : "Nothing segmented for this target.";
                 }
                 else if (existing != null)
                 {
@@ -214,14 +248,21 @@ namespace VoxTell_Interface.Services
                 return imported;
             }
 
-            var byPrompt = new Dictionary<string, InferenceResult>(StringComparer.Ordinal);
+            // Keyed on the result key, not the row's label. Labels are null on every
+            // catalog-addressed result — Dictionary throws on a null key — and a label is a
+            // display string that nothing should be paired by.
+            var byKey = new Dictionary<string, InferenceResult>(StringComparer.Ordinal);
             foreach (InferenceResult r in results)
-                byPrompt[r.Prompt] = r;
+            {
+                string key = r.Label;
+                if (!string.IsNullOrEmpty(key)) byKey[key] = r;
+            }
 
             foreach (StructurePlan plan in plans.Where(p => p.Selected))
             {
                 InferenceResult result;
-                if (!byPrompt.TryGetValue(plan.Prompt, out result))
+                string planKey = plan.ResultKey ?? plan.Prompt ?? string.Empty;
+                if (!byKey.TryGetValue(planKey, out result))
                 {
                     warnings.Add(string.Format("No result found for '{0}'.", plan.Prompt));
                     continue;

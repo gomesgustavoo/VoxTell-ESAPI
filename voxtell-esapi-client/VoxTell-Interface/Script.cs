@@ -40,40 +40,51 @@ namespace VMS.TPS
                 return;
             }
 
-            // Unlock write access — required once before any structure modifications
-            context.Patient.BeginModifications();
+            // Write access is NOT unlocked here.
+            //
+            // v1 and the first v2 build both called BeginModifications() the moment
+            // the panel opened, which unlocks the patient for writing before the
+            // planner has chosen anything -- including on the run where they only
+            // wanted to look at a QA verdict. Eclipse treats an unlocked patient as
+            // modified, so opening the panel and closing it could prompt to save.
+            //
+            // The unlock now happens immediately before the first contour is
+            // written (see MainViewModel.EnsureWritable), gated on
+            // Patient.CanModifyData(). Reading the structure set back for QA needs
+            // no unlock at all, which is a real safety improvement: run 2 can open
+            // read-only.
+            //
+            // NoInlining on this method stays load-bearing regardless. Eclipse walks
+            // the stack to attribute BeginModifications to the calling assembly, and
+            // an inlined frame breaks that attribution.
 
-            // Host the WinForms control inside Eclipse's WPF window via WindowsFormsHost.
+            // A pure WPF panel now. The WindowsFormsHost that used to carry
+            // MainControl is gone, and with it the hosted child HWND, the
+            // AutoScaleMode/Px() DPI arithmetic and the double-scaling trap it
+            // brought. WPF lays out in device-independent units, so DPI is simply
+            // not a thing this panel has to think about.
+            //
             // When Execute() returns, Eclipse unfreezes the workspace while keeping
-            // the window open and ScriptContext/write access alive.
-            var host = new System.Windows.Forms.Integration.WindowsFormsHost();
-            var mainControl = new MainControl(context);
-            host.Child = mainControl;
-            // Aligns the hosted HWND to whole device pixels, so the card edges and the 1 px
-            // section rules do not land on half-pixels and blur.
-            host.SnapsToDevicePixels = true;
-
-            // There was a RenderOptions.SetBitmapScalingMode(host, HighQuality) call here,
-            // commented as enabling "per-monitor DPI awareness for crisp text rendering". It
-            // did neither: WindowsFormsHost hosts a child HWND that WPF composites directly
-            // rather than rasterising, so a bitmap scaling mode never applies to it, and
-            // nothing about DPI awareness is settable from inside a plugin — that belongs to
-            // the host process manifest. DPI is handled properly in MainControl now, via
-            // AutoScaleMode.Dpi and UiTheme.Scale.
-
-            window.Content = host;
+            // the window open and ScriptContext alive.
+            window.Content = new MainPanel(context);
             window.Title = "VoxTell AI Segmentation";
-            // Wider and taller than v1: the results review list needs room, since nothing
-            // reaches the patient until the planner has read it. The extra width over the
-            // first v2 build is for the 9.75pt type scale — at 8.25pt the grid columns fitted,
-            // but only because the text was too small to read.
-            window.Width = 680;
-            window.Height = 820;
-            window.MinWidth = 560;
-            window.MinHeight = 620;
+
+            // Wider than the WinForms build: the review table's six columns and the
+            // 9.75pt type scale need the room.
+            //
+            // The MINIMUM is what changed in 2.2.0.0, and it is a consequence of the panel
+            // no longer having an outer scroller. Nothing scrolls the whole panel any more,
+            // so the window must not be resizable below the height at which the header, the
+            // context strip, the picker, the action bar and the review card all fit — or
+            // the bottom of a card is simply clipped, silently, with no scrollbar to hint
+            // that a control is missing. 720 is that height plus a little; the layout
+            // harness renders exactly 620x720 to keep it honest.
+            window.Width = 760;
+            window.Height = 860;
+            window.MinWidth = 620;
+            window.MinHeight = 720;
             window.UseLayoutRounding = true;
-            window.Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(30, 30, 30));
+            window.Background = Theme.Void;
         }
     }
 }

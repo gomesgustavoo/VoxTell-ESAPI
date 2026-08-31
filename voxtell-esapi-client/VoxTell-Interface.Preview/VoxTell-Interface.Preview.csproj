@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The layout harness.
+
+    Renders the SHIPPING MainPanel to a PNG with no Eclipse, no patient, no licence
+    and no server, so a spacing or overlap defect can be seen and fixed in seconds
+    instead of through rebuild -> redeploy -> re-approve -> reopen Eclipse.
+
+    It LINKS the plugin's sources rather than referencing the built DLL. Two reasons:
+    the preview seams stay `internal` so nothing preview-only widens the plugin's
+    public surface, and there is no chance of the harness rendering a stale binary.
+    Script.cs and AssemblyInfo.cs are the only exclusions: the former is Eclipse's
+    entry point, the latter would collide with this project's own attributes.
+  -->
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <ProjectGuid>{9C3E7A21-5B84-4D6F-A0C7-2E91B4D8F503}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>VoxTell_Interface.Preview</RootNamespace>
+    <AssemblyName>VoxTell-Preview</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <VarianApiDir Condition=" '$(VarianApiDir)' == '' ">C:\Program Files (x86)\Varian\RTM\16.1\esapi\API</VarianApiDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+    <!-- WPF. PresentationFramework carries XamlReader, which TemplateFactory needs. -->
+    <Reference Include="PresentationFramework" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <!-- The panel's view model still names ScriptContext in its signatures, so the
+         harness needs the Varian assemblies on the reference path even though it
+         never constructs one (it passes null; see MainViewModel.CreatePreview). -->
+    <Reference Include="VMS.TPS.Common.Model.API">
+      <HintPath>$(VarianApiDir)\VMS.TPS.Common.Model.API.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VMS.TPS.Common.Model.Types">
+      <HintPath>$(VarianApiDir)\VMS.TPS.Common.Model.Types.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\VoxTell-Interface\Models\**\*.cs">
+      <Link>Plugin\Models\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\ViewModels\**\*.cs">
+      <Link>Plugin\ViewModels\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Services\**\*.cs">
+      <Link>Plugin\Services\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+    <Compile Include="..\VoxTell-Interface\Views\**\*.cs">
+      <Link>Plugin\Views\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

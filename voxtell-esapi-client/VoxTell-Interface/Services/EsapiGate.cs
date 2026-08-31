@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.ExceptionServices;
 using System.Threading;
-using System.Windows.Forms;
 using System.Windows.Threading;
 
 namespace VoxTell_Interface.Services
@@ -21,7 +20,6 @@ namespace VoxTell_Interface.Services
     {
         private readonly int _esapiThreadId;
         private readonly SynchronizationContext _context;
-        private readonly Control _fallbackControl;
         private readonly Dispatcher _fallbackDispatcher;
 
         /// <summary>
@@ -38,26 +36,6 @@ namespace VoxTell_Interface.Services
 
             _esapiThreadId = Thread.CurrentThread.ManagedThreadId;
             _fallbackDispatcher = owner;
-            _context = SynchronizationContext.Current;
-        }
-
-        /// <summary>
-        /// The WinForms constructor, kept only until <c>MainForm</c> is deleted.
-        ///
-        /// Must be constructed ON the ESAPI thread — i.e. from the UI control's constructor,
-        /// which Eclipse reaches synchronously through <c>Script.Execute</c>.
-        /// </summary>
-        public EsapiGate(Control owner)
-        {
-            if (owner == null) throw new ArgumentNullException("owner");
-
-            _esapiThreadId = Thread.CurrentThread.ManagedThreadId;
-            _fallbackControl = owner;
-
-            // Prefer the SynchronizationContext over Control.Invoke. Eclipse hosts us in a WPF
-            // window, so this is the dispatcher context for the main STA thread and it works
-            // before the WinForms handle exists. Control.InvokeRequired returns *false* on a
-            // handle-less control, which would run ESAPI work on a pool thread and corrupt it.
             _context = SynchronizationContext.Current;
         }
 
@@ -115,22 +93,20 @@ namespace VoxTell_Interface.Services
             }
             else if (_fallbackDispatcher != null)
             {
-                // Needs no window handle, so unlike the Control path below this cannot be
-                // unreachable.
+                // Needs no window handle, which is why it is the only fallback left.
                 _fallbackDispatcher.Invoke(new Action(() => callback()));
             }
             else
             {
-                // No captured context. Control.Invoke needs a created handle, and if there
-                // isn't one there is no way to reach the right thread — say so plainly
-                // instead of running the work here and corrupting the model.
-                if (!_fallbackControl.IsHandleCreated)
-                {
-                    throw new InvalidOperationException(
-                        "Cannot reach the ESAPI thread: no SynchronizationContext was captured " +
-                        "and the host control has no window handle yet.");
-                }
-                _fallbackControl.Invoke(new MethodInvoker(() => callback()));
+                // Neither a captured context nor a dispatcher. There is no way to reach
+                // the right thread from here, so say so plainly rather than running
+                // ESAPI work on whatever thread we happen to be on and corrupting the
+                // model. The WinForms Control.Invoke fallback that used to sit here
+                // went with MainForm; a Dispatcher needs no window handle, so unlike
+                // that path this one is genuinely unreachable in practice.
+                throw new InvalidOperationException(
+                    "Cannot reach the ESAPI thread: no SynchronizationContext was captured " +
+                    "and no dispatcher is available.");
             }
 
             if (failure != null)

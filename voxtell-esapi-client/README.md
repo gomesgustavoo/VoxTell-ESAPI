@@ -124,7 +124,10 @@ actual DICOM, or the plugin itself in Eclipse.
    catches the redirect on a loopback port. On a workstation with no free port or no
    registered browser it falls back to a short code you approve from any device. The session
    is remembered between runs, so this is normally a one-off.
-4. **Enter prompts** — one anatomical name per line, up to 16
+4. **Choose what to segment** — either **Structures** (a preset, or the structures
+   already on the series, detected automatically) or **Prompts** (one anatomical
+   name per line, up to 16). The model list comes from the server, so a new model
+   needs no new DLL.
 5. **Segment** — the volume is read, compressed and uploaded once, then the job queues on the
    shared GPU. The panel shows the queue position, then the server's own progress message,
    which is what distinguishes "waiting for the GPU" from "stuck".
@@ -187,16 +190,21 @@ classDiagram
         +BuildPlan() : no writes
         +Import() : writes, after review
     }
-    class MainControl {
+    class EsapiStructureReader {
+        +ReadCandidates() : no writes
+        +ReadSnapshot() : contours for QA
+    }
+    class MainPanel {
         -MainViewModel _viewModel
     }
 
-    Script --> MainControl : creates
-    MainControl --> MainViewModel : binds to
+    Script --> MainPanel : creates
+    MainPanel --> MainViewModel : renders
     MainViewModel --> AuthService : tokens
     MainViewModel --> VoxTellApiClient : HTTP
     MainViewModel --> VoxelEncoder : encode
     MainViewModel --> EsapiStructureImporter : plan, then import
+    MainViewModel --> EsapiStructureReader : detect, then snapshot
     VoxelEncoder --> IVolumeSource : reads slices
     VoxelEncoder --> IThreadGate : marshals onto the ESAPI thread
     IVolumeSource <|.. EsapiVolumeSource
@@ -220,7 +228,13 @@ surface small enough to review in one sitting, and it lets everything else run i
 | [`Services/Auth/`](VoxTell-Interface/Services/Auth) | PKCE loopback flow, device-code fallback, DPAPI credential store | — |
 | [`Models/ApiModels.cs`](VoxTell-Interface/Models/ApiModels.cs) | Wire DTOs and the typed API error | — |
 | [`ViewModels/MainViewModel.cs`](VoxTell-Interface/ViewModels/MainViewModel.cs) | Workflow orchestration | — |
-| [`Views/MainForm.cs`](VoxTell-Interface/Views/MainForm.cs) | WinForms UI (dark theme), hosted in Eclipse's WPF window via `WindowsFormsHost` | — |
+| [`Services/EsapiStructureReader.cs`](VoxTell-Interface/Services/EsapiStructureReader.cs) | Reads structures back — `GetContoursOnImagePlane`, approval, volume, islands | yes (read-only) |
+| [`Services/StructureAutoDetect.cs`](VoxTell-Interface/Services/StructureAutoDetect.cs) | Matches existing structures to the catalog; surfaces the unrecognised | — |
+| [`Services/LineageKeys.cs`](VoxTell-Interface/Services/LineageKeys.cs) | HMACs a series UID so no identifier reaches the cloud | — |
+| [`Models/ModelCatalog.cs`](VoxTell-Interface/Models/ModelCatalog.cs) | The catalog from `GET /v1/models`; no model list is compiled in | — |
+| [`Models/QaModels.cs`](VoxTell-Interface/Models/QaModels.cs) | QA snapshot DTOs and the content hash used for idempotency | — |
+| [`Views/Theme.cs`](VoxTell-Interface/Views/Theme.cs) · [`Ui.cs`](VoxTell-Interface/Views/Ui.cs) · [`TemplateFactory.cs`](VoxTell-Interface/Views/TemplateFactory.cs) · [`Controls.cs`](VoxTell-Interface/Views/Controls.cs) | The WPF design system: palette, type scale, layout factories, control templates | — |
+| [`Views/MainPanel.cs`](VoxTell-Interface/Views/MainPanel.cs) · [`ReviewList.cs`](VoxTell-Interface/Views/ReviewList.cs) · [`ModelPicker.cs`](VoxTell-Interface/Views/ModelPicker.cs) · [`StepRail.cs`](VoxTell-Interface/Views/StepRail.cs) | The panel. Pure WPF — no WinForms, no `WindowsFormsHost`, no DPI arithmetic | — |
 
 ---
 
@@ -233,9 +247,12 @@ surface small enough to review in one sitting, and it lets everything else run i
 | **Sign-in** | Authorization Code + PKCE against `http://127.0.0.1:{47653,47654,47655}/callback`. Those ports are registered verbatim on the `voxtell-esapi` Keycloak client — Keycloak's redirect wildcard is path-only, so they cannot be ephemeral and must stay in sync with `OIDC_REDIRECT_PORTS` in the API config. Falls back to the device-code flow. |
 | **HTTP timeouts** | Per call, not one global value: 10 min per 32 MiB upload part, 5 min for a result download, 60 s to create a job, 30 s to poll. Retries 5 times with exponential backoff on 502/503/504 and Cloudflare's 52x/530 — except `POST /jobs`, which is not idempotent. |
 | **Structure names** | Separators become `_`, other invalid characters are dropped, truncated to Eclipse's 16-character limit, then de-duplicated with a numeric suffix. `"left kidney"` becomes `left_kidney`. |
-| **Write access** | `context.Patient.BeginModifications()` on launch, and `[assembly: ESAPIScript(IsWriteable = true)]`. The script must be approved for write operations in your Eclipse configuration. The plugin never calls `SaveModifications` — you save in Eclipse. |
+| **Write access** | `[assembly: ESAPIScript(IsWriteable = true)]`, but `BeginModifications()` is deferred to immediately **before the first write** and gated on `Patient.CanModifyData()` — not called on launch. Opening the panel therefore does not mark the patient modified, and reading structures back for QA needs no unlock at all. The plugin never calls `SaveModifications` — you save in Eclipse. |
+| **QA baselines** | Writing structures also records what was written as the QA baseline for the series, keyed on `HMAC-SHA256(series UID)` under a per-tenant secret from `GET /v1/me`. No DICOM UID, patient name or id is ever sent. Unavailable — and the panel says so — when the deployment has no lineage secret or the series has no UID. |
+| **Structure matching** | An existing structure name is matched to the catalog on a normalised key (lowercase, alphanumerics only), so `Kidney_R`, `Kidney R` and `kidney-r` all match. Unmatched names are **listed for the planner**, never silently skipped. |
 | **Threading** | `Image.GetVoxels` and every structure write run on the ESAPI thread, enforced by `EsapiGate.AssertOnEsapiThread` rather than assumed. Compression and HTTP run off it, which is why the Eclipse UI stays responsive during an upload. |
-| **Limits** | 16 prompts, 200 characters each, checked client-side before the volume is read. 6 outstanding jobs per user; a 429 is a wait, not a failure. |
+| **Limits** | 16 prompts, 200 characters each, checked client-side before the volume is read (structure ids are capped far higher, since the whole CADS set is 167). 6 outstanding jobs per user; a 429 is a wait, not a failure. |
+| **Offline checks** | `VoxTell-Harness.exe --selftest` runs 62 assertions over the name-normalisation contract, the auto-detect skip rules, the snapshot content hash and the lineage keys — no Eclipse, no server, no credential. These are the paths that fail *silently* in the field. |
 
 ---
 

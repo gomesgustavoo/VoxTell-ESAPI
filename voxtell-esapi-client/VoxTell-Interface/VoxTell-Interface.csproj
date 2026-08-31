@@ -50,12 +50,10 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.Net.Http" />
     <!-- ProtectedData (DPAPI), for the credential store -->
     <Reference Include="System.Security" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -80,7 +78,6 @@
     <!-- Binding derives from MarkupExtension, which lives here, so any code that constructs
          a Binding needs this even with no XAML in the project. XamlReader is here too. -->
     <Reference Include="System.Xaml" />
-    <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Script.cs" />
@@ -90,7 +87,15 @@
          EsapiStructureImporter.cs the way it used to. -->
     <Compile Include="Models\StructurePlan.cs" />
     <Compile Include="Models\StructurePalette.cs" />
+    <!-- The model/structure catalog fetched from GET /v1/models. ESAPI-free, and the
+         plugin holds no hard-coded model list: adding a model is a server deployment,
+         not a DLL re-approval on every workstation. -->
+    <Compile Include="Models\ModelCatalog.cs" />
+    <!-- QA snapshot wire types. Carries contours and geometry, never pixels, and
+         deliberately no patient identifier of any kind. -->
+    <Compile Include="Models\QaModels.cs" />
     <Compile Include="ViewModels\WorkflowPhase.cs" />
+    <Compile Include="ViewModels\TargetMode.cs" />
     <!-- The seam between the ViewModel and the view: a snapshot the view renders and an
          interface it drives. Both ESAPI-free, so the preview project links them. -->
     <Compile Include="ViewModels\MainViewState.cs" />
@@ -99,6 +104,10 @@
     <Compile Include="Services\IVolumeSource.cs" />
     <Compile Include="Services\IThreadGate.cs" />
     <Compile Include="Services\VoxelEncoder.cs" />
+    <!-- Opaque lineage keys and the existing-structure matcher. Both deliberately take
+         plain values rather than ESAPI objects, so the harness can test them. -->
+    <Compile Include="Services\LineageKeys.cs" />
+    <Compile Include="Services\StructureAutoDetect.cs" />
     <Compile Include="Services\VoxTellApiClient.cs" />
     <Compile Include="Services\Auth\Pkce.cs" />
     <Compile Include="Services\Auth\JwtPeek.cs" />
@@ -109,18 +118,22 @@
     <Compile Include="Services\EsapiGate.cs" />
     <Compile Include="Services\EsapiVolumeSource.cs" />
     <Compile Include="Services\EsapiStructureImporter.cs" />
+    <Compile Include="Services\EsapiStructureReader.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
     <!-- The WPF visual language: palette, type scale, spacing, and the four control
          templates. No ESAPI and no WinForms, so the preview project links these directly. -->
     <Compile Include="Views\Theme.cs" />
     <Compile Include="Views\Ui.cs" />
     <Compile Include="Views\TemplateFactory.cs" />
-    <!-- Palette, type scale, spacing and DPI. No ESAPI, but WinForms-only, so the harness
-         does not link it. Deleted once MainForm.cs goes. -->
-    <Compile Include="Views\UiTheme.cs" />
-    <Compile Include="Views\MainForm.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    <Compile Include="Views\Controls.cs" />
+    <Compile Include="Views\StepRail.cs" />
+    <Compile Include="Views\HeaderBar.cs" />
+    <!-- The virtualised, filterable structure list and the tables built on one grid.
+         Both ESAPI-free, so the preview project renders them without Eclipse. -->
+    <Compile Include="Views\PickList.cs" />
+    <Compile Include="Views\ReviewTable.cs" />
+    <Compile Include="Views\TargetPicker.cs" />
+    <Compile Include="Views\MainPanel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

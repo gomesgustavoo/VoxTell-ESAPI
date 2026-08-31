@@ -97,6 +97,39 @@ namespace VoxTell_Interface.Views
             return panel;
         }
 
+        /// <summary>
+        /// A row that wraps onto the next line instead of running off the edge.
+        ///
+        /// For collections whose count is not known at design time — the preset
+        /// buttons come from the server's catalog, so "how many fit" is not a
+        /// question this code can answer. A horizontal <see cref="StackPanel"/>
+        /// silently clips the overflow, which at the window's minimum width hid the
+        /// last preset entirely.
+        ///
+        /// The gap is applied per child as a right/bottom margin rather than between
+        /// children, because a wrap panel has no notion of which child starts a line.
+        /// </summary>
+        public static WrapPanel Wrap(params UIElement[] kids)
+        {
+            var panel = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (UIElement kid in kids)
+            {
+                if (kid != null) panel.Children.Add(kid);
+            }
+            return panel;
+        }
+
+        /// <summary>Add to a <see cref="WrapPanel"/> with the standard inter-item gap.</summary>
+        public static T AppendWrapped<T>(this WrapPanel panel, T child, double gap)
+            where T : FrameworkElement
+        {
+            if (child == null) return null;
+            Thickness m = child.Margin;
+            child.Margin = new Thickness(m.Left, m.Top, m.Right + gap, m.Bottom + gap);
+            panel.Children.Add(child);
+            return child;
+        }
+
         /// <summary>A surface: rounded, inset, sitting above the window background.</summary>
         public static Border Card(UIElement child)
         {
@@ -110,12 +143,32 @@ namespace VoxTell_Interface.Views
             };
         }
 
-        /// <summary>A titled surface: heading, hairline, then content.</summary>
+        /// <summary>
+        /// A titled surface: heading, hairline, then content.
+        ///
+        /// A <see cref="System.Windows.Controls.Grid"/> and not a
+        /// <see cref="StackPanel"/>, and that is load-bearing rather than a preference. A
+        /// StackPanel hands every child its *desired* height, so a `*` row or a scroller
+        /// inside a section was measured at its full content height and then CLIPPED by the
+        /// card — silently. That cost the protocol pane its last row and its button at the
+        /// window's minimum height, with no scrollbar to hint that anything was missing.
+        /// With a `*` content row the section passes the height it was given down, and a
+        /// list inside it scrolls instead of disappearing.
+        /// </summary>
         public static Border Section(string title, UIElement child)
         {
-            return Card(Stack(Theme.Space2,
-                Heading(title),
-                Divider(),
+            TextBlock heading = Heading(title);
+            Border rule = Divider();
+            rule.Margin = new Thickness(0, Theme.Space2, 0, Theme.Space2);
+
+            // Grid.SetRow rather than .At(): the child arrives as a UIElement, and the
+            // modifier extensions are constrained to FrameworkElement.
+            System.Windows.Controls.Grid.SetRow(child, 2);
+            System.Windows.Controls.Grid.SetColumn(child, 0);
+
+            return Card(Grid("Auto,Auto,*", "*",
+                heading.At(0, 0),
+                rule.At(1, 0),
                 child));
         }
 
@@ -251,6 +304,39 @@ namespace VoxTell_Interface.Views
             };
         }
 
+        /// <summary>
+        /// A password box in the same surface as <see cref="Input"/>.
+        ///
+        /// A real <see cref="System.Windows.Controls.PasswordBox"/>, not a TextBox: the API
+        /// key field used to be an ordinary text box under a comment stating that a pasted
+        /// key must not sit legible on a shared clinical workstation. It did.
+        /// </summary>
+        public static Border Password(out System.Windows.Controls.PasswordBox box)
+        {
+            box = new System.Windows.Controls.PasswordBox
+            {
+                FontFamily = Theme.UiFamily,
+                FontSize = Theme.SizeBody,
+                Foreground = Theme.Ink,
+                Background = Brushes.Transparent,
+                CaretBrush = Theme.Ink,
+                SelectionBrush = Theme.Steel,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+            };
+
+            return new Border
+            {
+                Background = Theme.Raised,
+                BorderBrush = Theme.Edge,
+                BorderThickness = new Thickness(1),
+                CornerRadius = Theme.ControlCorner,
+                Padding = Theme.InputPadding,
+                SnapsToDevicePixels = true,
+                Child = box,
+            };
+        }
+
         // --- modifiers ----------------------------------------------------------------- //
 
         public static T At<T>(this T element, int row, int col) where T : FrameworkElement
@@ -282,6 +368,12 @@ namespace VoxTell_Interface.Views
         public static T MinW<T>(this T element, double width) where T : FrameworkElement
         {
             element.MinWidth = width;
+            return element;
+        }
+
+        public static T MinH<T>(this T element, double height) where T : FrameworkElement
+        {
+            element.MinHeight = height;
             return element;
         }
 
@@ -338,8 +430,8 @@ namespace VoxTell_Interface.Views
         /// globally so that prose keeps its proportional figures, where they read better.
         ///
         /// <c>NumeralAlignment</c> is a *request* — a font without the OpenType
-        /// <c>tnum</c> feature ignores it silently. The right-alignment and the fixed
-        /// column widths in <see cref="ReviewColumns"/> are what guarantee the columns
+        /// <c>tnum</c> feature ignores it silently. The right-alignment and the shared
+        /// column definitions in <see cref="ReviewTable"/> are what guarantee the columns
         /// line up either way, so this is an improvement when available rather than a
         /// dependency.
         /// </summary>
@@ -355,6 +447,33 @@ namespace VoxTell_Interface.Views
         {
             Typography.SetNumeralAlignment(element, FontNumeralAlignment.Tabular);
             return element;
+        }
+
+        /// <summary>
+        /// Append to a <see cref="StackPanel"/> built by <see cref="Stack"/> or
+        /// <see cref="Row"/>, applying the same gap the constructor would have.
+        ///
+        /// Needed because <c>Linear</c> can only space the children it is handed. A
+        /// panel filled later — the step rail, the preset row, the structure tree —
+        /// got a uniform gap of zero, so its children sat flush against each other
+        /// and read as one run-together block. That is a real defect, not a nicety:
+        /// the whole point of the spacing scale is that nothing has to decide what
+        /// "a gap" means at the call site.
+        /// </summary>
+        public static T Append<T>(this StackPanel panel, T child, double gap)
+            where T : FrameworkElement
+        {
+            if (child == null) return null;
+
+            if (panel.Children.Count > 0 && gap > 0)
+            {
+                Thickness m = child.Margin;
+                child.Margin = panel.Orientation == Orientation.Vertical
+                    ? new Thickness(m.Left, m.Top + gap, m.Right, m.Bottom)
+                    : new Thickness(m.Left + gap, m.Top, m.Right, m.Bottom);
+            }
+            panel.Children.Add(child);
+            return child;
         }
 
         public static T Show<T>(this T element, bool visible) where T : UIElement

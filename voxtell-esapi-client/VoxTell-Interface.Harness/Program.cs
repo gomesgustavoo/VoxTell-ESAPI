@@ -42,6 +42,14 @@ namespace VoxTell_Interface.Harness
 
         private static async Task<int> RunAsync(string[] args)
         {
+            // Checked before Options.Parse so the self-test needs no server, no
+            // credential and no base URL -- it touches nothing outside this process.
+            if (args != null && args.Any(a =>
+                string.Equals(a, "--selftest", StringComparison.OrdinalIgnoreCase)))
+            {
+                return SelfTest.Run();
+            }
+
             var options = Options.Parse(args);
             if (options.ShowHelp)
             {

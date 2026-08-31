@@ -50,8 +50,14 @@ namespace VoxTell_Interface.Views
     internal static class TemplateFactory
     {
         private static ControlTemplate _button;
+        private static ControlTemplate _ghost;
         private static ControlTemplate _tick;
         private static ControlTemplate _scrollBar;
+        private static ControlTemplate _select;
+        private static ControlTemplate _selectItem;
+        private static ControlTemplate _segment;
+        private static ControlTemplate _menu;
+        private static ControlTemplate _menuItem;
 
         /// <summary>Flat button: rounded border, centred content, state triggers.</summary>
         public static ControlTemplate Button
@@ -69,6 +75,51 @@ namespace VoxTell_Interface.Views
         public static ControlTemplate ScrollBar
         {
             get { return _scrollBar ?? (_scrollBar = BuildScrollBar()); }
+        }
+
+        /// <summary>
+        /// A borderless button: no fill until hovered. For the step rail and the account
+        /// chip, where a full button would put a box around every word in the header.
+        /// </summary>
+        public static ControlTemplate Ghost
+        {
+            get { return _ghost ?? (_ghost = BuildGhost()); }
+        }
+
+        /// <summary>
+        /// A real dropdown: closed field with a chevron, list in a floating layer.
+        ///
+        /// This is what the review row's DICOM type used to be: a button that silently
+        /// cycled four values on click. Nothing on it said so, and the four values were
+        /// discoverable only by clicking three times.
+        /// </summary>
+        public static ControlTemplate Select
+        {
+            get { return _select ?? (_select = BuildSelect()); }
+        }
+
+        /// <summary>One row inside a <see cref="Select"/>'s list.</summary>
+        public static ControlTemplate SelectItem
+        {
+            get { return _selectItem ?? (_selectItem = BuildSelectItem()); }
+        }
+
+        /// <summary>One tab of a segmented control: checked reads raised, unchecked recedes.</summary>
+        public static ControlTemplate Segment
+        {
+            get { return _segment ?? (_segment = BuildSegment()); }
+        }
+
+        /// <summary>The account menu's surface.</summary>
+        public static ControlTemplate Menu
+        {
+            get { return _menu ?? (_menu = BuildMenu()); }
+        }
+
+        /// <summary>One entry in the account menu.</summary>
+        public static ControlTemplate MenuEntry
+        {
+            get { return _menuItem ?? (_menuItem = BuildMenuItem()); }
         }
 
         // --- button -------------------------------------------------------------------- //
@@ -97,8 +148,7 @@ namespace VoxTell_Interface.Views
             template.VisualTree = border;
             template.Triggers.Add(Fill("Bd", UIElement.IsMouseOverProperty, true, Theme.Panel));
             template.Triggers.Add(Fill("Bd", ButtonBase.IsPressedProperty, true, Theme.Sunken));
-            template.Triggers.Add(
-                Fill("Bd", UIElement.IsEnabledProperty, false, Theme.ControlDisabled));
+            template.Triggers.Add(Dim("Bd", Theme.ControlDisabled));
             // The only place the steel accent appears on a button.
             template.Triggers.Add(
                 Stroke("Bd", UIElement.IsKeyboardFocusedProperty, true, Theme.Steel));
@@ -161,8 +211,7 @@ namespace VoxTell_Interface.Views
             template.Triggers.Add(Stroke("Bd", UIElement.IsMouseOverProperty, true, Theme.InkFaint));
             template.Triggers.Add(
                 Stroke("Bd", UIElement.IsKeyboardFocusedProperty, true, Theme.Steel));
-            template.Triggers.Add(
-                Fill("Bd", UIElement.IsEnabledProperty, false, Theme.ControlDisabled));
+            template.Triggers.Add(Dim("Bd", Theme.ControlDisabled));
             template.Seal();
             return template;
         }
@@ -172,7 +221,7 @@ namespace VoxTell_Interface.Views
         // See the class remarks for why this one is a XAML string. Colours are inlined
         // rather than referenced, because a resource lookup from parsed XAML would search
         // Eclipse's application resources, which we do not own. They must match Theme:
-        //   #26262A/#32373E = Theme.Raised / Theme.Edge, #6B7280 = Theme.InkFaint.
+        //   #32373E = Theme.Edge (the resting thumb), #6B7280 = Theme.InkFaint (hover).
         private const string ScrollBarXaml =
             "<ControlTemplate TargetType='ScrollBar' " +
             "  xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
@@ -226,6 +275,205 @@ namespace VoxTell_Interface.Views
             return template;
         }
 
+        // --- ghost button -------------------------------------------------------------- //
+
+        private static ControlTemplate BuildGhost()
+        {
+            var border = new FrameworkElementFactory(typeof(Border), "Bd");
+            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            border.SetValue(Border.CornerRadiusProperty, Theme.ControlCorner);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            content.SetBinding(FrameworkElement.MarginProperty,
+                new Binding("Padding") { RelativeSource = RelativeSource.TemplatedParent });
+            border.AppendChild(content);
+
+            var template = new ControlTemplate(typeof(ButtonBase));
+            template.VisualTree = border;
+            template.Triggers.Add(Fill("Bd", UIElement.IsMouseOverProperty, true, Theme.Raised));
+            template.Triggers.Add(Fill("Bd", ButtonBase.IsPressedProperty, true, Theme.Sunken));
+            template.Triggers.Add(
+                Stroke("Bd", UIElement.IsKeyboardFocusedProperty, true, Theme.Steel));
+            template.Triggers.Add(Dim("Bd", Brushes.Transparent));
+            template.Seal();
+            return template;
+        }
+
+        // --- segmented tab ------------------------------------------------------------- //
+
+        private static ControlTemplate BuildSegment()
+        {
+            var border = new FrameworkElementFactory(typeof(Border), "Bd");
+            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            border.SetValue(Border.CornerRadiusProperty, Theme.ControlCorner);
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(FrameworkElement.HorizontalAlignmentProperty,
+                HorizontalAlignment.Center);
+            content.SetValue(FrameworkElement.VerticalAlignmentProperty,
+                VerticalAlignment.Center);
+            content.SetBinding(FrameworkElement.MarginProperty,
+                new Binding("Padding") { RelativeSource = RelativeSource.TemplatedParent });
+            border.AppendChild(content);
+
+            var template = new ControlTemplate(typeof(ToggleButton));
+            template.VisualTree = border;
+
+            // Hover first, checked second: a trigger later in the list wins, so the
+            // selected tab does not lose its fill when the pointer crosses it.
+            template.Triggers.Add(Fill("Bd", UIElement.IsMouseOverProperty, true, Theme.Panel));
+
+            var on = new Trigger { Property = ToggleButton.IsCheckedProperty, Value = true };
+            on.Setters.Add(new Setter(Border.BackgroundProperty, Theme.Raised, "Bd"));
+            on.Setters.Add(new Setter(Border.BorderBrushProperty, Theme.Edge, "Bd"));
+            template.Triggers.Add(on);
+
+            template.Triggers.Add(
+                Stroke("Bd", UIElement.IsKeyboardFocusedProperty, true, Theme.Steel));
+            template.Triggers.Add(Dim("Bd", Theme.ControlDisabled));
+            template.Seal();
+            return template;
+        }
+
+        // --- select (ComboBox) --------------------------------------------------------- //
+
+        // XAML for the same reason as the scrollbar: a ComboBox composes by PROPERTY —
+        // ContentPresenter for the selection box, PART_Popup for the list — and
+        // FrameworkElementFactory can only append children. The part name PART_Popup is
+        // load-bearing: ComboBox looks it up by name in OnApplyTemplate, and without it
+        // the list opens but never closes on an outside click.
+        //
+        // Colours are inlined because a resource lookup from parsed XAML would walk up
+        // into Eclipse's own application resources, which we do not own. They must match
+        // Theme: #262A30 Raised, #32373E Edge, #2A2E35 Overlay, #E8EAED Ink,
+        // #202328 ControlDisabled, #7C9CB8 Steel.
+        private const string SelectXaml =
+            "<ControlTemplate TargetType='ComboBox'" +
+            "  xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
+            "  <Grid>" +
+            "    <ToggleButton Name='Toggle' Focusable='False' ClickMode='Press'" +
+            "        IsChecked='{Binding IsDropDownOpen, Mode=TwoWay," +
+            "                    RelativeSource={RelativeSource TemplatedParent}}'>" +
+            "      <ToggleButton.Template>" +
+            "        <ControlTemplate TargetType='ToggleButton'>" +
+            "          <Border Name='Bd' Background='#FF262A30' BorderBrush='#FF32373E'" +
+            "                  BorderThickness='1' CornerRadius='3' SnapsToDevicePixels='True'>" +
+            "            <Path Name='Chevron' HorizontalAlignment='Right' VerticalAlignment='Center'" +
+            "                  Margin='0,0,8,0' Data='M 0,0 L 4,4 L 8,0' Stroke='#FF9AA1AB'" +
+            "                  StrokeThickness='1.4' StrokeStartLineCap='Round'" +
+            "                  StrokeEndLineCap='Round'/>" +
+            "          </Border>" +
+            "          <ControlTemplate.Triggers>" +
+            "            <Trigger Property='IsMouseOver' Value='True'>" +
+            "              <Setter TargetName='Bd' Property='Background' Value='#FF1E2126'/>" +
+            "              <Setter TargetName='Chevron' Property='Stroke' Value='#FFE8EAED'/>" +
+            "            </Trigger>" +
+            "            <Trigger Property='IsEnabled' Value='False'>" +
+            "              <Setter TargetName='Bd' Property='Background' Value='#FF202328'/>" +
+            "              <Setter TargetName='Chevron' Property='Stroke' Value='#FF6B7280'/>" +
+            "            </Trigger>" +
+            "          </ControlTemplate.Triggers>" +
+            "        </ControlTemplate>" +
+            "      </ToggleButton.Template>" +
+            "    </ToggleButton>" +
+            "    <ContentPresenter Name='Selection' IsHitTestVisible='False'" +
+            "        Margin='9,3,24,3' VerticalAlignment='Center' HorizontalAlignment='Left'" +
+            "        Content='{TemplateBinding SelectionBoxItem}'" +
+            "        ContentTemplate='{TemplateBinding SelectionBoxItemTemplate}'" +
+            "        ContentStringFormat='{TemplateBinding SelectionBoxItemStringFormat}'/>" +
+            "    <Popup Name='PART_Popup' Placement='Bottom' AllowsTransparency='True'" +
+            "           Focusable='False' PopupAnimation='None'" +
+            "           IsOpen='{TemplateBinding IsDropDownOpen}'>" +
+            "      <Border Background='#FF2A2E35' BorderBrush='#FF32373E' BorderThickness='1'" +
+            "              CornerRadius='3' SnapsToDevicePixels='True' Padding='0,3,0,3'" +
+            "              MinWidth='{Binding ActualWidth," +
+            "                         RelativeSource={RelativeSource TemplatedParent}}'" +
+            "              MaxHeight='{TemplateBinding MaxDropDownHeight}'>" +
+            "        <ScrollViewer VerticalScrollBarVisibility='Auto'" +
+            "                      HorizontalScrollBarVisibility='Disabled'>" +
+            "          <ItemsPresenter KeyboardNavigation.DirectionalNavigation='Contained'/>" +
+            "        </ScrollViewer>" +
+            "      </Border>" +
+            "    </Popup>" +
+            "  </Grid>" +
+            "</ControlTemplate>";
+
+        private static ControlTemplate BuildSelect()
+        {
+            var template = (ControlTemplate)XamlReader.Parse(SelectXaml);
+            template.Seal();
+            return template;
+        }
+
+        private static ControlTemplate BuildSelectItem()
+        {
+            var border = new FrameworkElementFactory(typeof(Border), "Bd");
+            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            border.SetValue(Border.PaddingProperty, Theme.MenuItemPadding);
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            border.AppendChild(content);
+
+            var template = new ControlTemplate(typeof(ComboBoxItem));
+            template.VisualTree = border;
+            template.Triggers.Add(Fill("Bd", UIElement.IsMouseOverProperty, true, Theme.Raised));
+            // Highlight, not a tick: the closed field already shows what is selected, so a
+            // second marker in the list is noise.
+            template.Triggers.Add(
+                Fill("Bd", ComboBoxItem.IsSelectedProperty, true, Theme.Panel));
+            template.Seal();
+            return template;
+        }
+
+        // --- context menu -------------------------------------------------------------- //
+
+        private const string MenuXaml =
+            "<ControlTemplate TargetType='ContextMenu'" +
+            "  xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
+            "  <Border Background='#FF2A2E35' BorderBrush='#FF32373E' BorderThickness='1'" +
+            "          CornerRadius='3' Padding='0,3,0,3' SnapsToDevicePixels='True'>" +
+            "    <StackPanel IsItemsHost='True' KeyboardNavigation.DirectionalNavigation='Cycle'/>" +
+            "  </Border>" +
+            "</ControlTemplate>";
+
+        private static ControlTemplate BuildMenu()
+        {
+            var template = (ControlTemplate)XamlReader.Parse(MenuXaml);
+            template.Seal();
+            return template;
+        }
+
+        private static ControlTemplate BuildMenuItem()
+        {
+            var border = new FrameworkElementFactory(typeof(Border), "Bd");
+            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            border.SetValue(Border.PaddingProperty, Theme.MenuItemPadding);
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+            content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            border.AppendChild(content);
+
+            var template = new ControlTemplate(typeof(MenuItem));
+            template.VisualTree = border;
+            template.Triggers.Add(
+                Fill("Bd", MenuItem.IsHighlightedProperty, true, Theme.Raised));
+            template.Triggers.Add(
+                Fill("Bd", UIElement.IsEnabledProperty, false, Brushes.Transparent));
+            template.Seal();
+            return template;
+        }
+
         // --- trigger helpers ----------------------------------------------------------- //
 
         private static Trigger Fill(
@@ -233,6 +481,22 @@ namespace VoxTell_Interface.Views
         {
             var trigger = new Trigger { Property = on, Value = when };
             trigger.Setters.Add(new Setter(Border.BackgroundProperty, fill, part));
+            return trigger;
+        }
+
+        /// <summary>
+        /// The disabled look: recede AND fade.
+        ///
+        /// The fill change on its own is almost invisible against the card — two steps of a
+        /// near-neutral ramp — and it left the *caption* at full ink, so a disabled Segment
+        /// button read as available. The opacity is what makes the state legible, and it
+        /// covers the content too, which a template setter on the border cannot.
+        /// </summary>
+        private static Trigger Dim(string part, Brush fill)
+        {
+            var trigger = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
+            trigger.Setters.Add(new Setter(Border.BackgroundProperty, fill, part));
+            trigger.Setters.Add(new Setter(UIElement.OpacityProperty, 0.5, part));
             return trigger;
         }
 

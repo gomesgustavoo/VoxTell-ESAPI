@@ -59,6 +59,11 @@ namespace VoxTell_Interface.Services
         private string _baseUrl;
         private AuthConfigResponse _authConfig;
 
+        // Cached like _authConfig, and invalidated by SetBaseUrl for the same
+        // reason: a different deployment can offer a different set of models, and
+        // a stale catalog would let the panel offer a model the server will reject.
+        private ModelCatalog _catalog;
+
         /// <summary>
         /// Set to reach Traefik directly before the public DNS name exists. Applies ONLY to API
         /// calls — putting it on a presigned PUT would break the signature, since SigV4 signs
@@ -137,6 +142,7 @@ namespace VoxTell_Interface.Services
         {
             _baseUrl = NormaliseBaseUrl(baseUrl);
             _authConfig = null;     // Endpoints belong to the old host.
+            _catalog = null;        // So do the models it offers.
         }
 
         private static string NormaliseBaseUrl(string baseUrl)
@@ -191,6 +197,65 @@ namespace VoxTell_Interface.Services
             return await SendJsonAsync<MeResponse>(
                 HttpMethod.Get, "/me", null, authenticated: true,
                 timeout: TimeSpan.FromSeconds(30), ct: ct).ConfigureAwait(false);
+        }
+
+        // ------------------------------------------------------------------------------- //
+        //  Catalog
+        // ------------------------------------------------------------------------------- //
+
+        /// <summary>
+        /// Fetches and caches <c>/v1/models</c>: which models and structures this
+        /// deployment offers.
+        ///
+        /// Unauthenticated, like <c>/auth/config</c> — it holds no patient data and
+        /// no tenant-specific information, and the panel needs it to render its
+        /// model picker before the planner has necessarily signed in.
+        ///
+        /// Retried, unlike <see cref="CreateJobAsync"/>: a GET is idempotent, and a
+        /// panel that cannot list models is useless, so it is worth waiting out a
+        /// transient 503.
+        /// </summary>
+        public async Task<ModelCatalog> GetCatalogAsync(CancellationToken ct)
+        {
+            if (_catalog != null) return _catalog;
+
+            _catalog = await SendJsonAsync<ModelCatalog>(
+                HttpMethod.Get, "/models", null, authenticated: false,
+                timeout: TimeSpan.FromSeconds(30), ct: ct).ConfigureAwait(false);
+
+            return _catalog;
+        }
+
+        /// <summary>The catalog from the last fetch, or null. Synchronous, for the view.</summary>
+        public ModelCatalog CachedCatalog { get { return _catalog; } }
+
+        // ------------------------------------------------------------------------------- //
+        //  QA baselines
+        // ------------------------------------------------------------------------------- //
+
+        /// <summary>
+        /// Records a structure snapshot as the QA baseline for its series.
+        ///
+        /// Safe to retry, and that is a property of the server contract rather than
+        /// an accident: the record is deduplicated on
+        /// <c>(series_key, structure_set_sha256)</c>, so sending the same snapshot
+        /// twice returns the same baseline with <c>created: false</c> instead of
+        /// creating a second one. It must never bill twice for one structure set,
+        /// because the planner reopening a patient before editing anything is the
+        /// normal case, not an edge case.
+        /// </summary>
+        public async Task<BaselineResponse> PostBaselineAsync(
+            StructureSnapshot snapshot, string jobId, CancellationToken ct)
+        {
+            string path = "/qa/baselines";
+            if (!string.IsNullOrEmpty(jobId))
+            {
+                path += "?job_id=" + Uri.EscapeDataString(jobId);
+            }
+
+            return await SendJsonAsync<BaselineResponse>(
+                HttpMethod.Post, path, snapshot, authenticated: true,
+                timeout: TimeSpan.FromSeconds(120), ct: ct).ConfigureAwait(false);
         }
 
         // ------------------------------------------------------------------------------- //

@@ -27,6 +27,7 @@ namespace VoxTell_Interface.Models
     public class StructurePlan : INotifyPropertyChanged
     {
         private bool _selected;
+        private string _existingId;
         private string _structureId;
         private string _dicomType;
         private Color _color;
@@ -34,14 +35,42 @@ namespace VoxTell_Interface.Models
 
         // --- fixed at plan time ------------------------------------------------------------ //
 
-        /// <summary>The server's prompt, verbatim.</summary>
+        /// <summary>
+        /// What to call this row: the prompt for a prompt model, the catalog structure's
+        /// display name for a catalog-addressed one.
+        /// </summary>
         public string Prompt { get; set; }
 
         /// <summary>
-        /// The Id of the structure this prompt matched, or null when one will be created.
-        /// Informational only — the write path resolves <see cref="StructureId"/> afresh.
+        /// The result this row came from — <c>structure_id</c> for a catalog model, the
+        /// prompt for a prompt model.
+        ///
+        /// The import used to pair plans back to results by <see cref="Prompt"/>, which is
+        /// null on every catalog-addressed result and therefore threw as a null dictionary
+        /// key the first time a CADS job was written. Pairing on an explicit key also stops
+        /// the row's *label* from being load-bearing.
         /// </summary>
-        public string ExistingId { get; set; }
+        public string ResultKey { get; set; }
+
+        /// <summary>
+        /// The Id of the existing structure this row will write into, or null when one will
+        /// be created.
+        ///
+        /// Recomputed by the view model whenever <see cref="StructureId"/> changes, and it
+        /// has to be: the write path resolves the *edited* id, so when this was fixed at
+        /// plan time a rename onto an existing structure showed "will create" on the row
+        /// and then replaced that structure's contours.
+        /// </summary>
+        public string ExistingId
+        {
+            get { return _existingId; }
+            set
+            {
+                if (_existingId == value) return;
+                _existingId = value;
+                Raise();
+            }
+        }
 
         /// <summary>Non-zero voxels the server reported.</summary>
         public long VoxelCount { get; set; }
@@ -162,5 +191,32 @@ namespace VoxTell_Interface.Models
             PropertyChangedEventHandler handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
         }
+    }
+
+    /// <summary>
+    /// How one result should be named when it becomes a review row.
+    ///
+    /// The importer knows the structure set; it does not know the catalog or the clinic's
+    /// protocol. Rather than hand it either — both would drag the catalog into the one file
+    /// that touches ESAPI — the view model passes this per result: display name, the id to
+    /// write, the DICOM type and the colour, any of which may be null for "decide as
+    /// before".
+    /// </summary>
+    public sealed class PlanNaming
+    {
+        /// <summary>The row's label. Null falls back to the result's own prompt or id.</summary>
+        public string DisplayName { get; set; }
+
+        /// <summary>
+        /// The Eclipse structure Id the clinic wants. Null lets the importer sanitise the
+        /// display name as it always has.
+        /// </summary>
+        public string WriteAs { get; set; }
+
+        /// <summary>DICOM type. Null means CONTROL.</summary>
+        public string DicomType { get; set; }
+
+        /// <summary>Set only when a protocol names a colour.</summary>
+        public System.Windows.Media.Color? Colour { get; set; }
     }
 }

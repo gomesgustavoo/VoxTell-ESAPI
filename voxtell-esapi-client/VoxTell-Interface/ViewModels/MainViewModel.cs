@@ -7,7 +7,6 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.Windows.Threading;
 using VMS.TPS.Common.Model.API;
 using VoxTell_Interface.Models;
@@ -42,6 +41,20 @@ namespace VoxTell_Interface.ViewModels
         private string _jobId;
         private List<InferenceResult> _results;
 
+        // The catalog and the QA lineage material, both fetched from the server.
+        private ModelCatalog _catalog;
+        private string _lineageSecret;
+
+        // Raw DICOM identifiers, read once in the constructor while the ESAPI
+        // context is certainly alive. They stay in this process and are only ever
+        // used as input to LineageKeys: nothing here is ever placed on a request,
+        // and grep for these field names should only ever find LineageKeys calls.
+        private readonly string _seriesUid;
+        private readonly string _frameOfReferenceUid;
+        private readonly string _deviceManufacturer;
+        private readonly string _deviceModel;
+        private readonly string _deviceSerial;
+
         /// <summary>
         /// The WPF constructor. Called from the view's constructor, which Eclipse reaches
         /// synchronously through <c>Script.Execute</c> — so we are on the ESAPI thread and
@@ -52,15 +65,6 @@ namespace VoxTell_Interface.ViewModels
         {
         }
 
-        /// <summary>
-        /// The WinForms constructor, kept only until <c>MainForm</c> is deleted so that flipping
-        /// the view over is a single, reversible change rather than two entangled ones.
-        /// </summary>
-        public MainViewModel(ScriptContext context, Control uiControl)
-            : this(context, new EsapiGate(uiControl))
-        {
-        }
-
         private MainViewModel(ScriptContext context, EsapiGate gate)
         {
             _context = context;
@@ -68,7 +72,11 @@ namespace VoxTell_Interface.ViewModels
 
             // Read the geometry now, synchronously, while we are certainly on the ESAPI thread
             // and the context is certainly alive.
-            if (context.Image != null)
+            //
+            // `context == null` is the preview path (see CreatePreview): the layout harness
+            // renders this exact view model and this exact panel with no Eclipse present, so
+            // every ESAPI touch below is guarded rather than assumed.
+            if (context != null && context.Image != null)
             {
                 _volume = new EsapiVolumeSource(context.Image, _gate);
 
@@ -84,6 +92,21 @@ namespace VoxTell_Interface.ViewModels
                 StructureSetInfo = context.StructureSet != null
                     ? context.StructureSet.Id
                     : "none open";
+
+                // Series identity and the imaging device, for QA lineage and for
+                // noticing a scanner or protocol change. Wrapped because a series
+                // detached from its study throws rather than returning null, and a
+                // missing UID must degrade to "no QA lineage", never to a crash on
+                // a panel the planner only wanted to segment with.
+                _seriesUid = TryRead(() => context.Image.Series != null
+                    ? context.Image.Series.UID : null);
+                _frameOfReferenceUid = TryRead(() => context.Image.FOR);
+                _deviceManufacturer = TryRead(() => context.Image.Series != null
+                    ? context.Image.Series.ImagingDeviceManufacturer : null);
+                _deviceModel = TryRead(() => context.Image.Series != null
+                    ? context.Image.Series.ImagingDeviceModel : null);
+                _deviceSerial = TryRead(() => context.Image.Series != null
+                    ? context.Image.Series.ImagingDeviceSerialNo : null);
             }
             else
             {
@@ -104,8 +127,341 @@ namespace VoxTell_Interface.ViewModels
         }
 
         // ------------------------------------------------------------------------------- //
+        //  Preview seam
+        // ------------------------------------------------------------------------------- //
+
+        /// <summary>
+        /// A view model with no Eclipse behind it, for the layout harness.
+        ///
+        /// Exists so the panel's layout can be rendered and looked at without a
+        /// patient, a licence or a running server. That is not a convenience: the
+        /// first real run of this UI surfaced a header whose cards overlapped and a
+        /// cross-thread crash, neither of which any compile or unit test can catch,
+        /// and iterating on them through "rebuild, redeploy, re-approve, reopen
+        /// Eclipse" is a minutes-long loop for a spacing change.
+        ///
+        /// <c>internal</c> and reached only by the Preview project, which links these
+        /// sources rather than referencing the shipped DLL — so nothing preview-only
+        /// widens the plugin's public surface.
+        /// </summary>
+        internal static MainViewModel CreatePreview()
+        {
+            return new MainViewModel(null, new EsapiGate(Dispatcher.CurrentDispatcher));
+        }
+
+        /// <summary>Fill the view model with plausible content for a render.</summary>
+        internal void SeedPreview(
+            string accountName,
+            string quota,
+            string imageInfo,
+            string rescaleInfo,
+            string structureSetInfo,
+            ModelCatalog catalog,
+            StructureAutoDetect.Detection detection,
+            List<StructurePlan> plans,
+            WorkflowPhase phase,
+            string status)
+        {
+            AccountName = accountName;
+            // An account name is the harness's way of saying "signed in"; the alternative
+            // is every state having to remember to say so.
+            _previewSignedIn = !string.IsNullOrEmpty(accountName);
+            QuotaInfo = quota;
+            ImageInfo = imageInfo;
+            RescaleInfo = rescaleInfo;
+            StructureSetInfo = structureSetInfo;
+            Catalog = catalog;
+            Detection = detection;
+            Plans = plans;
+            Phase = phase;
+            Status = status;
+            if (detection != null) SelectStructures(detection.StructureIds);
+            OnPropertyChanged("Plans");
+        }
+
+        /// <summary>True when there is no Eclipse behind this view model.</summary>
+        internal bool IsPreview { get { return _context == null; } }
+
+        // ------------------------------------------------------------------------------- //
         //  Bound state
         // ------------------------------------------------------------------------------- //
+
+        /// <summary>The catalog, once fetched. Null until then; the view copes.</summary>
+        public ModelCatalog Catalog
+        {
+            get { return _catalog; }
+            private set
+            {
+                _catalog = value;
+                OnPropertyChanged();
+                OnPropertyChanged("HasCatalog");
+                OnPropertyChanged("CanRun");
+            }
+        }
+
+        public bool HasCatalog
+        {
+            get { return _catalog != null && _catalog.Models != null && _catalog.Models.Count > 0; }
+        }
+
+        private TargetMode _mode = TargetMode.Prompts;
+
+        /// <summary>
+        /// Prompts or catalog structures. Defaults to Prompts so the panel opens
+        /// behaving exactly as the version planners already know; auto-detect
+        /// flips it to Structures when it actually finds something to compare.
+        /// </summary>
+        public TargetMode Mode
+        {
+            get { return _mode; }
+            set
+            {
+                if (_mode == value) return;
+                _mode = value;
+                OnPropertyChanged();
+                OnPropertyChanged("CanRun");
+                OnPropertyChanged("TargetSummary");
+            }
+        }
+
+        private string _promptModelKey;
+
+        /// <summary>Which prompt model to run. Null means the server's default.</summary>
+        public string PromptModelKey
+        {
+            get { return _promptModelKey; }
+            set { _promptModelKey = value; OnPropertyChanged(); }
+        }
+
+        private readonly HashSet<string> _selectedStructureIds =
+            new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Catalog structure ids ticked for this job, in catalog order.</summary>
+        public IList<string> SelectedStructureIds
+        {
+            get
+            {
+                if (_catalog == null || _catalog.Structures == null)
+                {
+                    return _selectedStructureIds.ToList();
+                }
+                return _catalog.Structures
+                    .Where(st => _selectedStructureIds.Contains(st.Id))
+                    .Select(st => st.Id)
+                    .ToList();
+            }
+        }
+
+        public bool IsStructureSelected(string structureId)
+        {
+            return structureId != null && _selectedStructureIds.Contains(structureId);
+        }
+
+        public void SetStructureSelected(string structureId, bool selected)
+        {
+            if (string.IsNullOrEmpty(structureId)) return;
+
+            bool changed = selected
+                ? _selectedStructureIds.Add(structureId)
+                : _selectedStructureIds.Remove(structureId);
+            if (!changed) return;
+
+            OnPropertyChanged("SelectedStructureIds");
+            OnPropertyChanged("SelectedStructureCount");
+            OnPropertyChanged("TargetSummary");
+            OnPropertyChanged("CanRun");
+        }
+
+        public int SelectedStructureCount { get { return _selectedStructureIds.Count; } }
+
+        /// <summary>Replace the selection wholesale — a preset, or auto-detect.</summary>
+        public void SelectStructures(IEnumerable<string> structureIds)
+        {
+            _selectedStructureIds.Clear();
+            foreach (string id in structureIds ?? Enumerable.Empty<string>())
+            {
+                if (!string.IsNullOrEmpty(id)) _selectedStructureIds.Add(id);
+            }
+            OnPropertyChanged("SelectedStructureIds");
+            OnPropertyChanged("SelectedStructureCount");
+            OnPropertyChanged("TargetSummary");
+            OnPropertyChanged("CanRun");
+        }
+
+        private string _protocolKey;
+
+        /// <summary>
+        /// The clinic protocol in force, or null.
+        ///
+        /// A protocol is the same structure ids as any other selection plus the naming the
+        /// clinic uses, so it changes nothing on the wire — see <see cref="TargetMode"/>.
+        /// It is served, not compiled in: ESAPI 16.1 exposes no structure-template or
+        /// clinical-protocol enumeration, and anything baked into this DLL costs a
+        /// re-approval on every workstation to change.
+        /// </summary>
+        public string ProtocolKey
+        {
+            get { return _protocolKey; }
+        }
+
+        public CatalogProtocol CurrentProtocol
+        {
+            get { return _catalog == null ? null : _catalog.Protocol(_protocolKey); }
+        }
+
+        /// <summary>
+        /// Apply a protocol: select everything it names that this deployment can produce.
+        ///
+        /// Entries no model produces are deliberately NOT selected and NOT hidden — the
+        /// pane lists them, because a protocol that silently drops a structure produces a
+        /// run that looks complete and is not.
+        /// </summary>
+        public void ApplyProtocol(string key)
+        {
+            _protocolKey = key;
+
+            CatalogProtocol protocol = CurrentProtocol;
+            if (protocol == null)
+            {
+                SelectStructures(new string[0]);
+            }
+            else
+            {
+                IList<ProtocolEntry> available;
+                IList<ProtocolEntry> unavailable;
+                _catalog.SplitEntries(protocol, out available, out unavailable);
+                SelectStructures(available.Select(e => e.StructureId));
+                Mode = TargetMode.Protocol;
+            }
+
+            OnPropertyChanged("ProtocolKey");
+            OnPropertyChanged("CurrentProtocol");
+            OnPropertyChanged("TargetSummary");
+            OnPropertyChanged("CanRun");
+        }
+
+        /// <summary>The protocol's entry for a catalog structure, or null.</summary>
+        public ProtocolEntry ProtocolEntryFor(string structureId)
+        {
+            CatalogProtocol protocol = CurrentProtocol;
+            if (protocol == null || protocol.Entries == null || structureId == null) return null;
+
+            return protocol.Entries.FirstOrDefault(
+                e => e != null && string.Equals(e.StructureId, structureId, StringComparison.Ordinal));
+        }
+
+        // Every structure Id currently on the set, for resolving what a row will write into.
+        // Cached rather than read per keystroke: the alternative is an ESAPI call on the UI
+        // thread for every character typed into a write-as box.
+        private readonly List<string> _existingIds = new List<string>();
+
+        /// <summary>
+        /// Re-resolve which existing structure a row targets, after its id was edited.
+        ///
+        /// <see cref="StructurePlan.ExistingId"/> was previously fixed when the plan was
+        /// built while the write path resolved the edited id, so renaming a row onto an
+        /// existing structure showed "will create" and then replaced that structure's
+        /// contours on the affected slices. The row now tells the truth as it is typed.
+        /// </summary>
+        public void RetargetPlan(StructurePlan plan)
+        {
+            if (plan == null) return;
+
+            string id = (plan.StructureId ?? string.Empty).Trim();
+            string match = null;
+            if (id.Length > 0)
+            {
+                foreach (string existing in _existingIds)
+                {
+                    if (string.Equals(existing, id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        match = existing;
+                        break;
+                    }
+                }
+            }
+            plan.ExistingId = match;
+        }
+
+        /// <summary>Seed the existing-id cache in the preview, where there is no ESAPI.</summary>
+        internal void SeedExistingIds(IEnumerable<string> ids)
+        {
+            _existingIds.Clear();
+            foreach (string id in ids ?? Enumerable.Empty<string>())
+            {
+                if (!string.IsNullOrEmpty(id)) _existingIds.Add(id);
+            }
+        }
+
+        private StructureAutoDetect.Detection _detection;
+
+        /// <summary>What is already contoured on this series. Null until scanned.</summary>
+        public StructureAutoDetect.Detection Detection
+        {
+            get { return _detection; }
+            private set
+            {
+                _detection = value;
+                OnPropertyChanged();
+                OnPropertyChanged("AutoDetectSummary");
+            }
+        }
+
+        /// <summary>
+        /// One factual line about the existing structure set. Always names the
+        /// unrecognised count, because that is the number the planner can act on —
+        /// and because silently skipping off-convention names is the commonest
+        /// failure in the published audits of exactly this workflow.
+        /// </summary>
+        public string AutoDetectSummary
+        {
+            get { return _detection == null ? null : _detection.Summary; }
+        }
+
+        /// <summary>What this job will ask for, for the run button's caption area.</summary>
+        public string TargetSummary
+        {
+            get
+            {
+                if (Mode == TargetMode.Prompts)
+                {
+                    int count = ParsePrompts().Count;
+                    return count == 0
+                        ? "No prompts yet."
+                        : count + (count == 1 ? " prompt" : " prompts") + ".";
+                }
+                int n = _selectedStructureIds.Count;
+
+                CatalogProtocol protocol = CurrentProtocol;
+                string prefix = Mode == TargetMode.Protocol && protocol != null
+                    ? protocol.DisplayName + ": "
+                    : string.Empty;
+
+                if (n == 0) return prefix.Length > 0 ? prefix + "nothing selected." : "No structures selected.";
+
+                IList<string> models = _catalog != null
+                    ? ModelsForSelection()
+                    : new List<string>();
+                string suffix = models.Count > 1
+                    ? " across " + models.Count + " models"
+                    : string.Empty;
+                return prefix + n + (n == 1 ? " structure" : " structures") + suffix + ".";
+            }
+        }
+
+        /// <summary>
+        /// Whether QA baselines can be recorded at all. False when the deployment
+        /// has no lineage secret, or the series has no UID to key on — in either
+        /// case the panel says so rather than pretending to record.
+        /// </summary>
+        public bool CanRecordBaseline
+        {
+            get
+            {
+                return !string.IsNullOrEmpty(_lineageSecret)
+                       && !string.IsNullOrEmpty(_seriesUid);
+            }
+        }
 
         private WorkflowPhase _phase;
         public WorkflowPhase Phase
@@ -168,6 +524,19 @@ namespace VoxTell_Interface.ViewModels
             // message, which meant rewording a message could silently change its colour from
             // across the codebase. SetStatus overrides the guess where a site knows better.
             private set { _status = value; Severity = Classify(value); OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Let the view report something the view model could not know about — a
+        /// browser that would not launch, an empty tick list.
+        ///
+        /// Exists because <see cref="Status"/> has a private setter, and that is
+        /// worth keeping: it forces every message through <c>Classify</c> so the
+        /// colour follows the text automatically. The view gets a door, not the key.
+        /// </summary>
+        public void SetStatusFromView(string message)
+        {
+            Status = message;
         }
 
         /// <summary>How <see cref="Status"/> should read. Derived, never assigned directly.</summary>
@@ -253,16 +622,30 @@ namespace VoxTell_Interface.ViewModels
         /// <summary>The review list. Nothing reaches the patient until rows here are ticked.</summary>
         public List<StructurePlan> Plans { get; private set; }
 
-        public bool IsSignedIn { get { return _auth.HasCredential; } }
+        /// <summary>
+        /// Whether there is a credential.
+        ///
+        /// <c>_previewSignedIn</c> exists because the layout harness runs on a real
+        /// workstation and the token store is a real DPAPI store: a "signed out" render was
+        /// coming out signed in, because the box happened to have a saved credential from
+        /// testing. A render must not depend on the machine it renders on.
+        /// </summary>
+        public bool IsSignedIn
+        {
+            get { return _previewSignedIn ?? _auth.HasCredential; }
+        }
+
+        private bool? _previewSignedIn;
 
         public bool CanRun
         {
             get
             {
-                return !IsBusy
-                       && _volume != null
-                       && _auth.HasCredential
-                       && ParsePrompts().Count > 0;
+                if (IsBusy || _volume == null || !IsSignedIn) return false;
+
+                return Mode == TargetMode.Prompts
+                    ? ParsePrompts().Count > 0
+                    : _selectedStructureIds.Count > 0;
             }
         }
 
@@ -419,12 +802,159 @@ namespace VoxTell_Interface.ViewModels
         {
             MeResponse me = await _api.GetMeAsync(ct);
 
+            // Kept in memory only for the lifetime of the panel. Null when the
+            // deployment has QA lineage switched off, which CanRecordBaseline reads
+            // as "do not offer to record".
+            _lineageSecret = me.LineageSecret;
+            OnPropertyChanged("CanRecordBaseline");
+
             AccountName = me.DisplayName;
             QuotaInfo = me.MonthlyQuota.HasValue
                 ? string.Format("{0} of {1} jobs used this month  ·  {2}/{3} in flight",
                     me.UsedThisMonth, me.MonthlyQuota.Value, me.Outstanding, me.MaxOutstanding)
                 : string.Format("{0} jobs this month  ·  {1}/{2} in flight",
                     me.UsedThisMonth, me.Outstanding, me.MaxOutstanding);
+        }
+
+        // ------------------------------------------------------------------------------- //
+        //  Catalog and auto-detect
+        // ------------------------------------------------------------------------------- //
+
+        /// <summary>
+        /// Fetch the catalog and scan the structure set. Safe to call repeatedly.
+        ///
+        /// Both halves are best-effort. A deployment whose catalog cannot be
+        /// reached must still be able to run free-text prompts, because that is the
+        /// workflow planners depend on; losing the model picker is a degradation,
+        /// not an outage. So a failure here sets a status line and returns.
+        /// </summary>
+        public async Task LoadCatalogAsync()
+        {
+            try
+            {
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                Catalog = await _api.GetCatalogAsync(cts.Token);
+                RefreshAutoDetect();
+
+                // Auto-detect wins when it found something: a selection derived from this
+                // patient is worth more than a template. With nothing on the series, a
+                // protocol is a better opening move than an empty prompt box.
+                if (_selectedStructureIds.Count == 0
+                    && Mode == TargetMode.Prompts
+                    && _catalog != null && _catalog.HasProtocols)
+                {
+                    Mode = TargetMode.Protocol;
+                }
+            }
+            catch (Exception ex)
+            {
+                Status = "Model list unavailable (" + Describe(ex) +
+                         "). Free-text prompts still work.";
+            }
+        }
+
+        /// <summary>
+        /// Match the structures already on this series against the catalog and
+        /// pre-select every recognised one.
+        ///
+        /// Pre-selecting all of them is the point of compare-by-default: leaving the
+        /// planner to choose guarantees the QA record is sparse and skewed toward
+        /// whatever they happened to be interested in. It costs them one glance to
+        /// untick something.
+        ///
+        /// Only flips <see cref="Mode"/> when there is actually something to select,
+        /// so an empty structure set leaves the panel in its familiar prompt mode.
+        /// </summary>
+        public void RefreshAutoDetect()
+        {
+            if (_catalog == null || _context == null || _context.StructureSet == null) return;
+
+            try
+            {
+                IList<StructureAutoDetect.Candidate> existing = _gate.Run(() =>
+                {
+                    var reader = new EsapiStructureReader(_context.StructureSet, _gate);
+                    return reader.ReadCandidates();
+                });
+
+                SeedExistingIds(existing.Select(c => c.ExistingId));
+
+                StructureAutoDetect.Detection detection =
+                    StructureAutoDetect.Scan(existing, _catalog);
+                Detection = detection;
+
+                if (detection.StructureIds.Count > 0 && _selectedStructureIds.Count == 0)
+                {
+                    SelectStructures(detection.StructureIds);
+                    Mode = TargetMode.Structures;
+                }
+            }
+            catch (Exception ex)
+            {
+                Status = "Could not read the existing structures: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Weights licences relevant to what this job will actually run.
+        ///
+        /// Mode-aware, which the structure-only version was not: in Prompts mode it
+        /// was showing the licence of a *structure selection* the job would not use,
+        /// so a free-text run advertised CADS's CC-BY-SA. Wrong provenance on screen
+        /// is worse than none, because it looks authoritative.
+        /// </summary>
+        public IList<string> CurrentLicences()
+        {
+            if (_catalog == null) return new List<string>();
+
+            if (Mode == TargetMode.Prompts)
+            {
+                CatalogModel model = _catalog.Model(PromptModelKey ?? "voxtell");
+                if (model == null || string.IsNullOrEmpty(model.WeightsLicence))
+                {
+                    return new List<string>();
+                }
+                return new List<string> { model.WeightsLicence };
+            }
+            return LicencesForSelection();
+        }
+
+        /// <summary>Distinct models the current structure selection needs, in catalog order.</summary>
+        public IList<string> ModelsForSelection()
+        {
+            if (_catalog == null || _catalog.Models == null) return new List<string>();
+
+            var needed = new HashSet<string>(
+                _selectedStructureIds
+                    .Select(id => _catalog.Structure(id))
+                    .Where(st => st != null)
+                    .Select(st => st.SourceModel),
+                StringComparer.Ordinal);
+
+            return _catalog.Models
+                .Where(m => needed.Contains(m.Key))
+                .Select(m => m.Key)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Distinct weights licences behind the current selection, for the panel.
+        ///
+        /// Shown rather than buried because CADS publishes three weight variants
+        /// under three different licences and only one permits commercial use. Which
+        /// one produced a given patient's contours is a question a clinic may have to
+        /// answer later, so the planner should be able to see it at the time.
+        /// </summary>
+        public IList<string> LicencesForSelection()
+        {
+            if (_catalog == null) return new List<string>();
+
+            return ModelsForSelection()
+                .Select(key => _catalog.Model(key))
+                .Where(m => m != null && !string.IsNullOrEmpty(m.WeightsLicence))
+                .Select(m => m.WeightsLicence)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
         }
 
         // ------------------------------------------------------------------------------- //
@@ -435,12 +965,18 @@ namespace VoxTell_Interface.ViewModels
         {
             if (!CanRun) return;
 
-            List<string> prompts = ParsePrompts();
-            string limitProblem = CheckPromptLimits(prompts);
-            if (limitProblem != null)
+            List<string> prompts = Mode == TargetMode.Prompts
+                ? ParsePrompts()
+                : new List<string>();
+
+            if (Mode == TargetMode.Prompts)
             {
-                Status = limitProblem;
-                return;
+                string limitProblem = CheckPromptLimits(prompts);
+                if (limitProblem != null)
+                {
+                    Status = limitProblem;
+                    return;
+                }
             }
 
             IsBusy = true;
@@ -482,11 +1018,29 @@ namespace VoxTell_Interface.ViewModels
                 var request = new JobCreateRequest
                 {
                     Geometry = Geometry.FromVolumeSource(_volume),
-                    Prompts = prompts.ToArray(),
                     UploadBytes = blob.LongLength,
                     KeepLargest = false,
                     WantMask = false,
+                    // Opaque, and null when this deployment has QA lineage off.
+                    SeriesKey = LineageKeys.Series(_lineageSecret, _seriesUid),
+                    ForKey = LineageKeys.Frame(_lineageSecret, _frameOfReferenceUid),
+                    ScannerKey = LineageKeys.Scanner(
+                        _lineageSecret, _deviceManufacturer, _deviceModel, _deviceSerial),
+                    Baseline = CanRecordBaseline,
                 };
+
+                // Exactly one of the two, never both: the server rejects a request
+                // carrying both, and NullValueHandling.Ignore keeps the unused one
+                // off the wire entirely.
+                if (Mode == TargetMode.Prompts)
+                {
+                    request.Prompts = prompts.ToArray();
+                    request.Model = PromptModelKey;
+                }
+                else
+                {
+                    request.StructureIds = SelectedStructureIds.ToArray();
+                }
 
                 Status = string.Format("Submitting {0:N1} MB...", blob.LongLength / 1e6);
                 JobCreatedResponse created = await _api.CreateJobAsync(request, ct);
@@ -627,13 +1181,106 @@ namespace VoxTell_Interface.ViewModels
             _gate.AssertOnEsapiThread("Building the import plan");
             var importer = new EsapiStructureImporter(
                 _context.StructureSet, _volume.ZSize, VoxelVolumeMm3, _gate);
-            return importer.BuildPlan(results);
+
+            List<StructurePlan> plans = importer.BuildPlan(results, NameRow);
+
+            // The set may have gained structures since the last scan, and the rows' targets
+            // are resolved against this cache from here on.
+            try
+            {
+                var reader = new EsapiStructureReader(_context.StructureSet, _gate);
+                SeedExistingIds(reader.ReadCandidates().Select(c => c.ExistingId));
+            }
+            catch
+            {
+                // A failed re-read must not lose a completed job: the rows keep the targets
+                // the importer resolved, they just stop updating as ids are edited.
+            }
+
+            return plans;
+        }
+
+        /// <summary>
+        /// What one result should be called, and what it should write into.
+        ///
+        /// Three sources, in order: the clinic protocol (id, DICOM type, colour), the
+        /// catalog (display name), then the result itself. The DICOM type falls back to
+        /// CONTROL rather than being guessed from the structure's group — inventing
+        /// clinical metadata from a group name is not this tool's call, and a protocol is
+        /// exactly where a clinic states it.
+        /// </summary>
+        private PlanNaming NameRow(InferenceResult result)
+        {
+            if (result == null) return null;
+
+            var naming = new PlanNaming();
+
+            CatalogStructure structure = _catalog != null && result.StructureId != null
+                ? _catalog.Structure(result.StructureId)
+                : null;
+            if (structure != null) naming.DisplayName = structure.DisplayName;
+
+            ProtocolEntry entry = ProtocolEntryFor(result.StructureId);
+            if (entry != null)
+            {
+                naming.WriteAs = entry.SafeWriteAs;
+                naming.DicomType = entry.DicomType;
+
+                byte r, g, b;
+                if (entry.TryColour(out r, out g, out b))
+                {
+                    naming.Colour = System.Windows.Media.Color.FromRgb(r, g, b);
+                }
+            }
+
+            return naming;
         }
 
         /// <summary>
         /// Writes the ticked structures. Synchronous and on the ESAPI thread by necessity —
         /// this is the only code that modifies the patient.
         /// </summary>
+        /// <summary>
+        /// Unlock the patient for writing, once, immediately before the first write.
+        ///
+        /// Deferred out of <c>Script.Execute</c> deliberately. Unlocking on open
+        /// marks the patient modified in Eclipse before the planner has decided
+        /// anything, so merely opening the panel to read a QA verdict could prompt
+        /// to save. Gated on <c>CanModifyData()</c> so a read-only session gets a
+        /// clear message instead of an exception from inside the importer.
+        /// </summary>
+        private bool EnsureWritable()
+        {
+            if (_writeUnlocked) return true;
+
+            try
+            {
+                if (_context == null)
+                {
+                    Status = "No Eclipse context, so nothing can be written.";
+                    return false;
+                }
+
+                if (!_context.Patient.CanModifyData())
+                {
+                    Status = "This patient is read-only in Eclipse, so nothing can be written.";
+                    return false;
+                }
+
+                _context.Patient.BeginModifications();
+                _writeUnlocked = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Status = "Could not unlock the patient for writing: " + ex.Message +
+                         " Close and re-run the script.";
+                return false;
+            }
+        }
+
+        private bool _writeUnlocked;
+
         public void ImportSelected()
         {
             if (Plans == null || _results == null) return;
@@ -644,6 +1291,8 @@ namespace VoxTell_Interface.ViewModels
                 Status = "Nothing ticked, so nothing was imported.";
                 return;
             }
+
+            if (!EnsureWritable()) return;
 
             try
             {
@@ -677,12 +1326,119 @@ namespace VoxTell_Interface.ViewModels
             }
         }
 
+        /// <summary>
+        /// Write the ticked structures, then record what was written as the QA
+        /// baseline for this series.
+        ///
+        /// The baseline is read back out of Eclipse rather than taken from the
+        /// server's response, and that is deliberate: what matters for a later
+        /// comparison is the geometry that actually landed in the patient, after
+        /// ESAPI's own contour handling, not what we asked it to write. Reading it
+        /// back also means a partially successful import records exactly the
+        /// structures that succeeded.
+        ///
+        /// Recording is best-effort and never blocks or undoes the import. The
+        /// structures are in the patient and useful whether or not QA recorded; a
+        /// failed snapshot must read as "QA not recorded", not as a failed import.
+        /// </summary>
+        public async Task ImportAndRecordAsync()
+        {
+            ImportSelected();
+
+            if (Phase != WorkflowPhase.Imported) return;
+            if (!CanRecordBaseline) return;
+            if (ImportSummary == null || ImportSummary.Count == 0) return;
+
+            try
+            {
+                await RecordBaselineAsync(ImportSummary);
+            }
+            catch (Exception ex)
+            {
+                Status = ImportedMessage(ImportSummary.Count) +
+                         " QA baseline not recorded (" + Describe(ex) + ").";
+            }
+        }
+
+        /// <summary>
+        /// Snapshot the named structures and post them as the run-1 baseline.
+        ///
+        /// The snapshot is contours and geometry, never voxels: metrics need those
+        /// and nothing else, which is what keeps a baseline at kilobytes per patient
+        /// and lets it outlive the volume's short retention window without keeping
+        /// any image.
+        /// </summary>
+        private async Task RecordBaselineAsync(IList<string> structureIds)
+        {
+            Status = "Recording the QA baseline...";
+
+            StructureSnapshot snapshot = _gate.Run(() =>
+            {
+                var reader = new EsapiStructureReader(_context.StructureSet, _gate);
+                return reader.ReadSnapshot(
+                    Geometry.FromVolumeSource(_volume),
+                    _catalog,
+                    structureIds,
+                    StructureSnapshot.RoleBaseline,
+                    null);
+            });
+
+            snapshot.SeriesKey = LineageKeys.Series(_lineageSecret, _seriesUid);
+            snapshot.ForKey = LineageKeys.Frame(_lineageSecret, _frameOfReferenceUid);
+            snapshot.ScannerKey = LineageKeys.Scanner(
+                _lineageSecret, _deviceManufacturer, _deviceModel, _deviceSerial);
+
+            if (string.IsNullOrEmpty(snapshot.SeriesKey))
+            {
+                Status = ImportedMessage(structureIds.Count) +
+                         " No series UID, so no QA baseline was recorded.";
+                return;
+            }
+
+            var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            BaselineResponse response = await _api.PostBaselineAsync(snapshot, _jobId, cts.Token);
+
+            BaselineWebUrl = response.WebUrl;
+            Status = ImportedMessage(structureIds.Count) + " " + (response.Created
+                ? "QA baseline recorded for " + response.StructureCount + " structure(s)."
+                : "QA baseline already recorded; nothing duplicated.");
+        }
+
+        private static string ImportedMessage(int count)
+        {
+            return string.Format(
+                "Imported {0} structure(s). Save in Eclipse to keep them.", count);
+        }
+
+        private string _baselineWebUrl;
+
+        /// <summary>Deep link to the coloured comparison, when the server offers one.</summary>
+        public string BaselineWebUrl
+        {
+            get { return _baselineWebUrl; }
+            private set { _baselineWebUrl = value; OnPropertyChanged(); }
+        }
+
         public List<string> ImportSummary { get; private set; }
         public List<string> ImportWarnings { get; private set; }
 
         // ------------------------------------------------------------------------------- //
         //  Helpers
         // ------------------------------------------------------------------------------- //
+
+        /// <summary>
+        /// Read an ESAPI property that may throw rather than return null.
+        ///
+        /// Several of the identity properties throw when the object graph is not
+        /// fully populated — a series detached from its study, an image opened
+        /// without one. A missing UID has to degrade to "no QA lineage" and never to
+        /// an exception on a panel the planner only opened to segment with.
+        /// </summary>
+        private static string TryRead(Func<string> read)
+        {
+            try { return read(); }
+            catch (Exception) { return null; }
+        }
 
         /// <summary>One prompt per line, commas also accepted.</summary>
         public List<string> ParsePrompts()
