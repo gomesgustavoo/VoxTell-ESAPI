@@ -153,6 +153,17 @@ def _duration_seconds(job: Job) -> float | None:
     return round((job.finished_at - job.started_at).total_seconds(), 2)
 
 
+def _target_count(prompts, structure_ids) -> int:
+    """How many things a job asked for, whichever way it was addressed.
+
+    The usage ledger's column is called ``prompts`` for historical reasons, and
+    feeding it ``len(body.prompts)`` recorded **zero** for a catalog-addressed job.
+    A CADS job asking for forty structures would have metered as nothing, which is
+    a billing and capacity-planning error rather than a cosmetic one.
+    """
+    return len(prompts or []) or len(structure_ids or [])
+
+
 async def _status(
     session: AsyncSession,
     job: Job,
@@ -176,6 +187,8 @@ async def _status(
         message=job.message,
         error=job.error,
         prompts=list(job.prompts or []),
+        structure_ids=list(job.structure_ids or []),
+        models=list(job.models or []),
         queue_position=position,
         # Derived from measured throughput rather than a guess. "About 4 minutes" is
         # something a planner can act on; "6 jobs ahead" is not.
@@ -271,6 +284,11 @@ async def _create_job_from_volume(
         # stops one tenant holding every queue position — see models.Job.fair_rank.
         fair_rank=state.queued,
         prompts=body.prompts,
+        structure_ids=body.structure_ids,
+        # Derived here, not sent by the client: asking for one brain structure and
+        # one liver structure must load two networks, and letting the workstation
+        # also name a model invites a request whose model and structures disagree.
+        models=body.resolved_models if body.structure_ids else [],
         # Copied, not referenced: a job row must stay self-describing after the
         # volume is released, and the worker must not need a join.
         geometry=dict(volume.geometry),
@@ -285,8 +303,10 @@ async def _create_job_from_volume(
         message="Queued",
     )
     session.add(job)
-    session.add(UsageEvent(user_id=user.id, job_id=job_id, prompts=len(body.prompts),
-                           voxels=volume.voxels))
+    session.add(UsageEvent(
+        user_id=user.id, job_id=job_id,
+        prompts=_target_count(body.prompts, body.structure_ids),
+        voxels=volume.voxels))
 
     volume.jobs_run += 1
     volume.last_used_at = now
@@ -396,6 +416,8 @@ async def _create_job_inline(
         user_id=user.id,
         state="awaiting_upload",
         prompts=body.prompts,
+        structure_ids=body.structure_ids,
+        models=body.resolved_models if body.structure_ids else [],
         geometry={**geom.model_dump(), "affine_lps": affine_lps},
         keep_largest=body.keep_largest,
         want_mask=body.want_mask,
@@ -486,8 +508,10 @@ async def submit_job(
     job.fair_rank = state.queued
     job.progress = 0.0
     job.message = "Queued"
-    session.add(UsageEvent(user_id=user.id, job_id=job.id,
-                           prompts=len(job.prompts or []), voxels=job.voxels))
+    session.add(UsageEvent(
+        user_id=user.id, job_id=job.id,
+        prompts=_target_count(job.prompts, job.structure_ids),
+        voxels=job.voxels))
     # Commit before responding so the worker can claim it the moment we say queued.
     await session.commit()
     return await _status(session, job)

@@ -78,6 +78,19 @@ class Settings(BaseSettings):
     VOXTELL_MAX_VOXELS: int = 512 * 512 * 1024
     VOXTELL_MAX_PROMPTS: int = 16
     VOXTELL_PROMPT_MAX_CHARS: int = 200
+    # Cap on structure ids per job for the catalog-addressed models. The whole
+    # CADS set is 167, so this has to clear that with room for custom nnU-Nets;
+    # it exists to bound the request, not to ration structures.
+    VOXTELL_MAX_STRUCTURES: int = 400
+    # Master secret from which each tenant's QA lineage key is derived. Empty
+    # disables QA lineage entirely -- the plugin then sends no keys and records no
+    # baselines, which is the correct behaviour for a deployment that has not
+    # provisioned one, rather than silently using a weak default.
+    VOXTELL_LINEAGE_SECRET: str = ""
+    # Public base URL of the console, used to build the deep link the plugin shows
+    # for the coloured comparison. Empty means no link is offered -- better than a
+    # link that 404s on a workstation with no browser access to it.
+    VOXTELL_CONSOLE_URL: str = ""
     # Volumes and results are deleted this long after the job finishes. These are
     # patient images: keep the window short.
     VOXTELL_RESULT_TTL_HOURS: int = 24

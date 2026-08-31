@@ -84,6 +84,28 @@ def shared_volume_key(user_id, content_sha256: str) -> str:
     return volume_prefix(user_id) + f"{content_sha256}.bin.gz"
 
 
+def baseline_prefix(user_id) -> str:
+    return f"u/{user_id}/qa/"
+
+
+def baseline_contours_key(user_id, series_key: str, structure_set_sha256: str) -> str:
+    """A QA baseline's contour object — deliberately NOT under ``jobs/``.
+
+    Same reasoning as :func:`shared_volume_key`, and the same four purge paths.
+    A baseline has to outlive the job that produced it and the volume it was
+    computed from: the volume expires on a sliding 2-hour idle TTL under an
+    8-hour ceiling and the result after 24 hours, but the planner does not come
+    back to edit for days. If the "before" contours sat under ``jobs/`` they
+    would be swept away exactly when the comparison finally became possible, and
+    the failure would look like "QA silently never works" rather than an error.
+
+    Keyed by ``(series_key, structure_set_sha256)`` so re-recording an identical
+    structure set writes the same object — the same idempotency the DB dedup
+    index enforces, arranged so the storage layer agrees with it for free.
+    """
+    return baseline_prefix(user_id) + f"{series_key}/{structure_set_sha256}.json.gz"
+
+
 def result_key(user_id, job_id) -> str:
     return job_prefix(user_id, job_id) + "result.json.gz"
 
@@ -142,6 +164,12 @@ def _abort_multipart_sync(key: str, upload_id: str) -> None:
     except ClientError:
         # Already completed or already aborted — nothing to clean up.
         pass
+
+
+def _put_bytes_sync(key: str, payload: bytes, content_type: str) -> None:
+    _ops_client.put_object(
+        Bucket=BUCKET, Key=key, Body=payload, ContentType=content_type
+    )
 
 
 def _presign_get_sync(key: str, expires: int, filename: str | None) -> str:
@@ -210,6 +238,17 @@ async def presign_get(key: str, filename: str | None = None) -> str:
     return await asyncio.to_thread(
         _presign_get_sync, key, settings.VOXTELL_RESULT_EXPIRY_SECONDS, filename
     )
+
+
+async def put_bytes(key: str, payload: bytes, content_type: str = "application/octet-stream") -> None:
+    """Upload a small object in one request.
+
+    Deliberately not multipart. A QA snapshot is contours and geometry only --
+    kilobytes -- so the presign/PUT/complete dance the volume path needs would be
+    ceremony, and it writes server-side where there is no Cloudflare body cap to
+    work around.
+    """
+    await asyncio.to_thread(_put_bytes_sync, key, payload, content_type)
 
 
 async def object_exists(key: str) -> bool:

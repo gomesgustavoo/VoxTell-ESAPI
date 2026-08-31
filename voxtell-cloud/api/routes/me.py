@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_caller
 from ..config import settings
 from ..db import get_session
+from ..lineage import lineage_secret_for
 from ..models import User
 from ..quota import load_state
 from ..schemas import MeResponse
@@ -59,4 +60,7 @@ async def me(
         queued=state.queued,
         running=state.running,
         remaining=state.remaining,
+        # None when this deployment has not provisioned a lineage secret, which
+        # the plugin reads as "QA lineage is off" and stops sending keys.
+        lineage_secret=lineage_secret_for(user.id),
     )

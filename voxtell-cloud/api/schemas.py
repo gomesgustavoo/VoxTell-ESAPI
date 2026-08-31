@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from voxtell_cloud.catalog import DEFAULT_MODEL, catalog
+
 from .config import settings
 
 
@@ -176,8 +178,8 @@ class JobCreateRequest(BaseModel):
         None, description="Legacy inline upload. Mutually exclusive with volume_id."
     )
     prompts: list[str] = Field(
-        ..., min_length=1,
-        description='Free-text anatomy, e.g. ["liver", "left kidney"]',
+        default_factory=list,
+        description='Free-text anatomy for a prompt model, e.g. ["liver", "left kidney"]',
     )
     upload_bytes: int | None = Field(
         None, gt=0,
@@ -188,6 +190,43 @@ class JobCreateRequest(BaseModel):
     )
     want_mask: bool = Field(
         False, description="Also produce mask.bin.gz alongside the contours"
+    )
+
+    # --- model addressing ------------------------------------------------- #
+    # Omitted means VoxTell, so every plugin already approved in a clinic keeps
+    # working untouched -- Eclipse approves a DLL by version and content hash, so
+    # we cannot roll workstations forward on our own schedule.
+    model: str | None = Field(
+        None,
+        description=f"Prompt-model key. Omit for the default ({DEFAULT_MODEL}). "
+                    "Mutually exclusive with structure_ids.",
+    )
+    structure_ids: list[str] = Field(
+        default_factory=list,
+        description="Catalog structure ids, e.g. [\"cads_556.rectum\"]. The model set "
+                    "is derived from these, never named by the client.",
+    )
+
+    # --- QA lineage (all opaque, all optional) ---------------------------- #
+    # HMAC-SHA256 hex under an org-scoped secret held on the workstation. The
+    # plugin never sends a DICOM UID, a patient name or a patient id; these keys
+    # are what let run 2 find run 1 without us ever holding an identifier.
+    series_key: str | None = Field(
+        None, min_length=64, max_length=64,
+        description="HMAC of the DICOM series UID. Opaque; not an identifier.",
+    )
+    for_key: str | None = Field(
+        None, min_length=64, max_length=64,
+        description="HMAC of the frame-of-reference UID.",
+    )
+    scanner_key: str | None = Field(
+        None, min_length=64, max_length=64,
+        description="HMAC of the imaging device manufacturer/model/serial triple, "
+                    "for detecting an acquisition-protocol change.",
+    )
+    baseline: bool = Field(
+        False,
+        description="Record this job's contours as the QA baseline for series_key.",
     )
 
     @model_validator(mode="after")
@@ -205,12 +244,89 @@ class JobCreateRequest(BaseModel):
             raise ValueError("the inline shape needs both geometry and upload_bytes")
         return self
 
+    @model_validator(mode="after")
+    def _exactly_one_target(self) -> JobCreateRequest:
+        """Either free-text prompts or catalog structure ids, never both.
+
+        Models are *derived* from structure ids rather than named alongside them,
+        the same rule DicomSegVR's router uses: asking for one brain structure and
+        one liver structure should load two networks, and letting the client also
+        name a model invites a request whose model and structures disagree.
+        """
+        has_prompts = bool(self.prompts)
+        has_structures = bool(self.structure_ids)
+
+        if has_prompts and has_structures:
+            raise ValueError("send either prompts or structure_ids, not both")
+        if not has_prompts and not has_structures:
+            raise ValueError("one of prompts or structure_ids is required")
+
+        cat = catalog()
+
+        if has_structures:
+            if self.model is not None:
+                raise ValueError(
+                    "do not send model with structure_ids; the model set is derived"
+                )
+            if len(self.structure_ids) > settings.VOXTELL_MAX_STRUCTURES:
+                raise ValueError(
+                    f"at most {settings.VOXTELL_MAX_STRUCTURES} structure_ids per job"
+                )
+            unknown = cat.unknown_structures(self.structure_ids)
+            if unknown:
+                shown = ", ".join(unknown[:5])
+                more = f" (+{len(unknown) - 5} more)" if len(unknown) > 5 else ""
+                raise ValueError(f"unknown structure_ids: {shown}{more}")
+            return self
+
+        model_key = self.model or DEFAULT_MODEL
+        model = cat.model(model_key)
+        if model is None:
+            raise ValueError(f"unknown model: {model_key}")
+        if not model.takes_prompts:
+            raise ValueError(
+                f"model {model_key} is addressed by structure_ids, not prompts"
+            )
+        return self
+
+    @property
+    def resolved_model(self) -> str | None:
+        """The prompt model to run, or ``None`` when the job is structure-addressed."""
+        return None if self.structure_ids else (self.model or DEFAULT_MODEL)
+
+    @property
+    def resolved_models(self) -> list[str]:
+        """Every model this job needs, in catalog order."""
+        if self.structure_ids:
+            return catalog().models_for_structures(self.structure_ids)
+        return [self.model or DEFAULT_MODEL]
+
+    @field_validator("structure_ids")
+    @classmethod
+    def _dedup_structure_ids(cls, v: list[str]) -> list[str]:
+        seen, out = set(), []
+        for i in (x.strip() for x in v):
+            if i and i not in seen:
+                seen.add(i)
+                out.append(i)
+        return out
+
+    @field_validator("series_key", "for_key", "scanner_key")
+    @classmethod
+    def _lower_hex(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not all(c in "0123456789abcdef" for c in v):
+            raise ValueError("must be lowercase hex")
+        return v
+
     @field_validator("prompts")
     @classmethod
     def _clean_prompts(cls, v: list[str]) -> list[str]:
         cleaned = [p.strip() for p in v if p and p.strip()]
         if not cleaned:
-            raise ValueError("at least one non-empty prompt is required")
+            return []
         if len(cleaned) > settings.VOXTELL_MAX_PROMPTS:
             raise ValueError(f"at most {settings.VOXTELL_MAX_PROMPTS} prompts per job")
         for p in cleaned:
@@ -226,6 +342,166 @@ class JobCreateRequest(BaseModel):
                 seen.add(p.lower())
                 out.append(p)
         return out
+
+
+# --------------------------------------------------------------------------- #
+# QA baselines
+# --------------------------------------------------------------------------- #
+# The snapshot the plugin uploads so a later run can be scored against it.
+#
+# There is deliberately no patient name, id, accession number or DICOM instance
+# UID in any model below. Series identity arrives only as opaque HMACs. If a
+# field that could identify a patient is ever added here, the product's central
+# privacy claim stops being true, so the absence is the design.
+class SnapshotContour(BaseModel):
+    z_index: int = Field(..., ge=0)
+    points_lps: list[list[float]] = Field(
+        ..., description="LPS millimetres, as ESAPI returned them"
+    )
+
+
+class SnapshotStructure(BaseModel):
+    id: str = Field(..., max_length=64, description="ESAPI Structure.Id, as the clinic wrote it")
+    name: str | None = Field(None, max_length=256)
+    dicom_type: str | None = Field(None, max_length=32)
+    roi_number: int = 0
+    structure_id: str | None = Field(
+        None, description="Catalog structure id, or null when the name was not recognised"
+    )
+    volume_cc: float | None = None
+    is_empty: bool = False
+    is_high_resolution: bool = False
+    separate_parts: int | None = None
+    is_approved: bool = False
+    last_modified_by: str | None = Field(None, max_length=256)
+    last_modified_at: datetime | None = None
+    structure_codes: list[str] | None = None
+    contours: list[SnapshotContour] = Field(default_factory=list)
+
+
+class SnapshotRequest(BaseModel):
+    schema_version: int = Field(1, alias="schema")
+    series_key: str = Field(..., min_length=64, max_length=64)
+    for_key: str | None = Field(None, min_length=64, max_length=64)
+    scanner_key: str | None = Field(None, min_length=64, max_length=64)
+    structure_set_uid: str | None = Field(None, max_length=128)
+    structure_set_sha256: str = Field(..., min_length=64, max_length=64)
+    role: Literal["baseline", "clinical"] = "baseline"
+    geometry: Geometry | None = None
+    structures: list[SnapshotStructure] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("series_key", "for_key", "scanner_key", "structure_set_sha256")
+    @classmethod
+    def _lower_hex(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not all(c in "0123456789abcdef" for c in v):
+            raise ValueError("must be lowercase hex")
+        return v
+
+
+class BaselineResponse(BaseModel):
+    baseline_id: uuid.UUID
+    state: str
+    created: bool = Field(
+        ...,
+        description="False when an identical structure set was already recorded. "
+                    "Not an error: reopening a patient before editing is normal, "
+                    "and it must not create a second baseline or bill twice.",
+    )
+    superseded: bool = Field(
+        False, description="True when this snapshot replaced an earlier, different one"
+    )
+    structure_count: int
+    web_url: str | None = None
+    message: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Model catalog
+# --------------------------------------------------------------------------- #
+# What this deployment can be asked to segment. The plugin fetches it once per
+# session and builds its model picker from it, so adding a model is a server-side
+# change -- no new DLL, and therefore no re-approval on every workstation.
+class CatalogModel(BaseModel):
+    key: str = Field(..., description="Address this model by this key")
+    display_name: str
+    kind: str = Field(..., description='"prompt" takes prompts; others take structure_ids')
+    region: str
+    modality: str
+    count: int | None = Field(None, description="Structures this model produces")
+    task: str | None = Field(None, description="Upstream task id, e.g. CADS 556")
+    weights_variant: str | None = Field(
+        None, description="Which published weights variant is deployed"
+    )
+    weights_licence: str = Field(
+        ..., description="Licence of the deployed weights, shown to the planner"
+    )
+    code_licence: str
+
+
+class CatalogStructure(BaseModel):
+    id: str = Field(..., description="Namespaced {model}.{class_name}")
+    display_name: str
+    group: str
+    modality: str
+    source_model: str
+    aliases: list[str] = Field(
+        default_factory=list,
+        description="Normalised match keys for an existing structure name. "
+                    "Lowercase, alphanumerics only.",
+    )
+
+
+class CatalogPreset(BaseModel):
+    key: str
+    display_name: str
+    structure_ids: list[str]
+    models: list[str]
+
+
+class CatalogProtocolEntry(BaseModel):
+    structure_id: str
+    write_as: str = Field(
+        ...,
+        max_length=16,
+        description="Eclipse structure Id to write. Eclipse allows 16 characters.",
+    )
+    dicom_type: str = Field("CONTROL", description="Applied only when created")
+    colour: str | None = Field(None, description="#RRGGBB; null lets the palette choose")
+    required: bool = True
+
+
+class CatalogProtocol(BaseModel):
+    key: str
+    display_name: str
+    site: str = Field("", description="Groups the protocol list; display only")
+    modality: str = "CT"
+    models: list[str]
+    entries: list[CatalogProtocolEntry]
+
+
+class CatalogResponse(BaseModel):
+    version: int
+    group_order: list[str] = Field(
+        ..., description="Render structure groups in this order"
+    )
+    models: list[CatalogModel]
+    structures: list[CatalogStructure]
+    # Presets stay in the response for as long as a 2.1.x plugin is approved anywhere:
+    # that build reads presets and knows nothing about protocols. Additive only.
+    presets: list[CatalogPreset]
+    protocols: list[CatalogProtocol] = Field(
+        default_factory=list,
+        description="Clinic protocols: a named structure set with the clinic's naming, "
+                    "DICOM types and colours. An entry may name a structure no model "
+                    "produces — a site protocol lists what the plan needs, including "
+                    "structures a human contours — and the plugin shows those as "
+                    "unavailable rather than dropping them.",
+    )
 
 
 class JobCreatedResponse(BaseModel):
@@ -251,6 +527,13 @@ class JobStatusResponse(BaseModel):
     message: str | None = None
     error: str | None = None
     prompts: list[str]
+    structure_ids: list[str] = Field(
+        default_factory=list,
+        description="Catalog structure ids, for a catalog-addressed job",
+    )
+    models: list[str] = Field(
+        default_factory=list, description="Models this job needs, in catalog order"
+    )
     queue_position: int | None = Field(
         None, description="Jobs ahead of this one; null unless queued"
     )
@@ -347,6 +630,11 @@ class MeResponse(BaseModel):
     used_this_month: int
     outstanding: int
     max_outstanding: int
+    lineage_secret: str | None = Field(
+        None,
+        description="Hex keying material for the QA lineage HMACs, scoped to this "
+                    "tenant. Null when the deployment has not enabled QA lineage.",
+    )
     capabilities: list[str] = Field(
         default_factory=list,
         description=(

@@ -255,6 +255,34 @@ _MIGRATIONS: tuple[tuple[str, str], ...] = (
         END $$
         """,
     ),
+    # qa_baselines is created by create_all; the state CHECK is added here for the
+    # same reason as ck_jobs_state -- a typo'd state string should fail at write
+    # time, not read as a silently-invisible row that no query matches.
+    (
+        "0022_ck_qa_baselines_state",
+        """
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                        WHERE table_name = 'qa_baselines')
+               AND NOT EXISTS (SELECT 1 FROM pg_constraint
+                                WHERE conname = 'ck_qa_baselines_state') THEN
+                ALTER TABLE qa_baselines ADD CONSTRAINT ck_qa_baselines_state CHECK (
+                    state IN ('provisional', 'confirmed', 'superseded')
+                );
+            END IF;
+        END $$
+        """,
+    ),
+    # Additive with a default, so an older API image still writing only `prompts`
+    # keeps working against a migrated database -- the columns simply stay empty.
+    (
+        "0023_jobs_model_addressing",
+        """
+        ALTER TABLE jobs
+            ADD COLUMN IF NOT EXISTS structure_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS models JSONB NOT NULL DEFAULT '[]'::jsonb
+        """,
+    ),
 )
 
 

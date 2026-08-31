@@ -196,6 +196,111 @@ class Volume(Base):
     )
 
 
+# A QA baseline record's lifecycle. `provisional` means the structure set has not
+# been approved in Eclipse yet, so the snapshot may still change; only
+# `confirmed` rows feed aggregates and drift charts. `superseded` rows are kept
+# rather than deleted so the edit history of one series stays reconstructable.
+BASELINE_STATES = ("provisional", "confirmed", "superseded")
+
+
+class QaBaseline(Base):
+    """What a model produced for one series, so a later run can be compared to it.
+
+    This is the *recording half* of the two-run QA workflow: run 1 segments and
+    writes, and stores the AI contours here as the "before". Run 2 reads the
+    clinician's edited structures back out of Eclipse and the server scores them
+    against this row. The measurement therefore rides on work the clinic was doing
+    anyway -- but only if the recording happened, and it cannot be done
+    retroactively, which is why this table lands before any verdict UI exists.
+
+    **How a series is identified without holding an identifier.** ``series_key`` is
+    an HMAC-SHA256 of the DICOM series UID under a secret that never leaves the
+    organisation's workstations. It is stable across workstations in one
+    organisation, is not reversible to a UID by us, and is not an identifier on
+    the wire. ``for_key`` does the same for the frame-of-reference UID.
+    Consequence, stated plainly: if the secret rotates, older rows become
+    unlinkable. That is acceptable -- the alternative is holding patient
+    identifiers -- but it means rotation is a decision, not a routine operation.
+
+    **Idempotency.** A planner reopens a patient minutes later, before editing
+    anything, and the plugin will happily offer to snapshot again. Dedup is on
+    ``(series_key, structure_set_sha256)``: an identical structure set produces no
+    new row. A genuinely different one supersedes its predecessor rather than
+    appending, so "the baseline for this series" is always a single row.
+
+    **Retention.** Metrics need contours and geometry, not pixels. The contour
+    object therefore lives outside the ``jobs/`` and ``volumes/`` prefixes so the
+    sweeper cannot reap it when the volume expires -- the same reasoning that put
+    shared volumes outside ``jobs/`` in ``storage.py``. This keeps a baseline at
+    kilobytes per patient with no CT retained.
+    """
+
+    __tablename__ = "qa_baselines"
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=new_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # The job whose output this is. SET NULL, not CASCADE: the baseline outlives
+    # the job row, which the sweeper purges after the result TTL.
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
+    )
+
+    state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="provisional", server_default=text("'provisional'")
+    )
+
+    # --- opaque lineage keys (never identifiers) --- #
+    series_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    for_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scanner_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Identity of the snapshot itself, for dedup. sha256 over the structure ids,
+    # their DICOM types and their contour geometry -- so "the same set" means the
+    # same contours, not merely the same names.
+    structure_set_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    # ESAPI StructureSet.UID. Not patient-identifying, and it lets run 2 tell an
+    # edited set apart from a different set on the same series.
+    structure_set_uid: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Where the "before" contours live. Outside jobs/ and volumes/ on purpose.
+    contours_key: Mapped[str] = mapped_column(Text, nullable=False)
+    contours_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    structure_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+
+    # Provenance. Denormalised on purpose: a verdict issued months later has to be
+    # explainable even after the catalog has moved on.
+    models: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    geometry: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    threshold_set_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=text("now()")
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("qa_baselines.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (
+        # One live baseline per series per tenant. Partial, so a superseded row
+        # does not block its successor.
+        Index(
+            "ux_qa_baselines_live",
+            "user_id",
+            "series_key",
+            unique=True,
+            postgresql_where=text("state <> 'superseded'"),
+        ),
+        # The idempotency lookup: has this exact structure set been recorded?
+        Index("ix_qa_baselines_dedup", "user_id", "series_key", "structure_set_sha256"),
+        Index("ix_qa_baselines_state", "user_id", "state"),
+        Index("ix_qa_baselines_scanner", "user_id", "scanner_key"),
+    )
+
+
 class Job(Base):
     """One segmentation request: upload -> queue -> GPU -> result."""
 
@@ -209,6 +314,19 @@ class Job(Base):
 
     # Request
     prompts: Mapped[list] = mapped_column(JSONB, nullable=False)
+    # Catalog-addressed jobs name structures instead of prompts. Both columns exist
+    # because both shapes stay supported indefinitely: Eclipse approves a plugin DLL
+    # by version and content hash on every workstation, so a clinic cannot be rolled
+    # forward on our schedule and the prompts-only request must keep working forever.
+    structure_ids: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # Which models the job actually needs, derived from structure_ids at admission
+    # rather than named by the client. Persisted so the worker does not have to
+    # re-derive it and a finished job stays self-describing.
+    models: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     # Full ESAPI geometry + the 4x4 LPS affine the API derived from it, so the
     # worker never recomputes it and a stored job is self-describing.
     geometry: Mapped[dict] = mapped_column(JSONB, nullable=False)

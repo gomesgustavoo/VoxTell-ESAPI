@@ -1,0 +1,2973 @@
+{
+ "version": 2,
+ "generated_from": "CADS resources/info/labelmap.md (vendored at scripts/data/)",
+ "group_order": [
+  "Radiotherapy structures",
+  "Thoracic organs",
+  "Lung lobes",
+  "Abdominal organs",
+  "Pelvic organs",
+  "Head & neck",
+  "Brain & head tissue",
+  "Vessels",
+  "Vertebrae",
+  "Ribs",
+  "Appendicular skeleton",
+  "Muscles",
+  "Tissue & cavities"
+ ],
+ "models": [
+  {
+   "key": "voxtell",
+   "display_name": "VoxTell (free-text prompts)",
+   "kind": "prompt",
+   "region": "Whole body",
+   "modality": "CT",
+   "count": null,
+   "task": null,
+   "weights_variant": null,
+   "weights_licence": "CC-BY-NC-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_551",
+   "display_name": "CADS 551 \u00b7 Abdominal organs & lung lobes",
+   "kind": "cads",
+   "region": "Abdomen / thorax",
+   "modality": "CT",
+   "count": 17,
+   "task": "551",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_552",
+   "display_name": "CADS 552 \u00b7 Vertebrae",
+   "kind": "cads",
+   "region": "Spine",
+   "modality": "CT",
+   "count": 24,
+   "task": "552",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_553",
+   "display_name": "CADS 553 \u00b7 Thoracic & abdominal detail",
+   "kind": "cads",
+   "region": "Thorax / abdomen",
+   "modality": "CT",
+   "count": 18,
+   "task": "553",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_554",
+   "display_name": "CADS 554 \u00b7 Appendicular skeleton & muscles",
+   "kind": "cads",
+   "region": "Whole body",
+   "modality": "CT",
+   "count": 21,
+   "task": "554",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_555",
+   "display_name": "CADS 555 \u00b7 Ribs",
+   "kind": "cads",
+   "region": "Thorax",
+   "modality": "CT",
+   "count": 24,
+   "task": "555",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_556",
+   "display_name": "CADS 556 \u00b7 Radiotherapy structures",
+   "kind": "cads",
+   "region": "Whole body",
+   "modality": "CT",
+   "count": 15,
+   "task": "556",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_557",
+   "display_name": "CADS 557 \u00b7 Brain & head tissue",
+   "kind": "cads",
+   "region": "Head",
+   "modality": "CT",
+   "count": 9,
+   "task": "557",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_558",
+   "display_name": "CADS 558 \u00b7 Head & neck",
+   "kind": "cads",
+   "region": "Head & neck",
+   "modality": "CT",
+   "count": 29,
+   "task": "558",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  },
+  {
+   "key": "cads_559",
+   "display_name": "CADS 559 \u00b7 Tissue types & cavities",
+   "kind": "cads",
+   "region": "Whole body",
+   "modality": "CT",
+   "count": 10,
+   "task": "559",
+   "weights_variant": "open",
+   "weights_licence": "CC-BY-SA-4.0",
+   "code_licence": "Apache-2.0"
+  }
+ ],
+ "structures": [
+  {
+   "id": "cads_551.spleen",
+   "display_name": "Spleen",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 1,
+   "class_name": "spleen",
+   "aliases": [
+    "spleen"
+   ]
+  },
+  {
+   "id": "cads_551.kidney_r",
+   "display_name": "Kidney R",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 2,
+   "class_name": "kidney_r",
+   "aliases": [
+    "kidneyr",
+    "kidneyright",
+    "rightkidney",
+    "rkidney"
+   ]
+  },
+  {
+   "id": "cads_551.kidney_l",
+   "display_name": "Kidney L",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 3,
+   "class_name": "kidney_l",
+   "aliases": [
+    "kidneyl",
+    "kidneyleft",
+    "leftkidney",
+    "lkidney"
+   ]
+  },
+  {
+   "id": "cads_551.gallbladder",
+   "display_name": "Gallbladder",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 4,
+   "class_name": "gallbladder",
+   "aliases": [
+    "gallbladder"
+   ]
+  },
+  {
+   "id": "cads_551.liver",
+   "display_name": "Liver",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 5,
+   "class_name": "liver",
+   "aliases": [
+    "liver"
+   ]
+  },
+  {
+   "id": "cads_551.stomach",
+   "display_name": "Stomach",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 6,
+   "class_name": "stomach",
+   "aliases": [
+    "stomach"
+   ]
+  },
+  {
+   "id": "cads_551.aorta",
+   "display_name": "Aorta",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 7,
+   "class_name": "aorta",
+   "aliases": [
+    "aorta"
+   ]
+  },
+  {
+   "id": "cads_551.inferior_vena_cava",
+   "display_name": "Inferior vena cava",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 8,
+   "class_name": "inferior_vena_cava",
+   "aliases": [
+    "inferiorvenacava"
+   ]
+  },
+  {
+   "id": "cads_551.portal_vein_and_splenic_vein",
+   "display_name": "Portal vein and splenic vein",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 9,
+   "class_name": "portal_vein_and_splenic_vein",
+   "aliases": [
+    "portalveinandsplenicvein"
+   ]
+  },
+  {
+   "id": "cads_551.pancreas",
+   "display_name": "Pancreas",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 10,
+   "class_name": "pancreas",
+   "aliases": [
+    "pancreas"
+   ]
+  },
+  {
+   "id": "cads_551.adrenal_gland_r",
+   "display_name": "Adrenal gland R",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 11,
+   "class_name": "adrenal_gland_r",
+   "aliases": [
+    "adrenalglandr",
+    "adrenalglandright",
+    "radrenalgland",
+    "rightadrenalgland"
+   ]
+  },
+  {
+   "id": "cads_551.adrenal_gland_l",
+   "display_name": "Adrenal gland L",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 12,
+   "class_name": "adrenal_gland_l",
+   "aliases": [
+    "adrenalglandl",
+    "adrenalglandleft",
+    "ladrenalgland",
+    "leftadrenalgland"
+   ]
+  },
+  {
+   "id": "cads_551.upper_lobe_of_lung_l",
+   "display_name": "Upper lobe of lung L",
+   "group": "Lung lobes",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 13,
+   "class_name": "upper_lobe_of_lung_l",
+   "aliases": [
+    "leftupperlobeoflung",
+    "lupperlobeoflung",
+    "upperlobeoflungl",
+    "upperlobeoflungleft"
+   ]
+  },
+  {
+   "id": "cads_551.lower_lobe_of_lung_l",
+   "display_name": "Lower lobe of lung L",
+   "group": "Lung lobes",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 14,
+   "class_name": "lower_lobe_of_lung_l",
+   "aliases": [
+    "leftlowerlobeoflung",
+    "llowerlobeoflung",
+    "lowerlobeoflungl",
+    "lowerlobeoflungleft"
+   ]
+  },
+  {
+   "id": "cads_551.upper_lobe_of_lung_r",
+   "display_name": "Upper lobe of lung R",
+   "group": "Lung lobes",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 15,
+   "class_name": "upper_lobe_of_lung_r",
+   "aliases": [
+    "rightupperlobeoflung",
+    "rupperlobeoflung",
+    "upperlobeoflungr",
+    "upperlobeoflungright"
+   ]
+  },
+  {
+   "id": "cads_551.middle_lobe_of_lung_r",
+   "display_name": "Middle lobe of lung R",
+   "group": "Lung lobes",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 16,
+   "class_name": "middle_lobe_of_lung_r",
+   "aliases": [
+    "middlelobeoflungr",
+    "middlelobeoflungright",
+    "rightmiddlelobeoflung",
+    "rmiddlelobeoflung"
+   ]
+  },
+  {
+   "id": "cads_551.lower_lobe_of_lung_r",
+   "display_name": "Lower lobe of lung R",
+   "group": "Lung lobes",
+   "modality": "CT",
+   "source_model": "cads_551",
+   "label_index": 17,
+   "class_name": "lower_lobe_of_lung_r",
+   "aliases": [
+    "lowerlobeoflungr",
+    "lowerlobeoflungright",
+    "rightlowerlobeoflung",
+    "rlowerlobeoflung"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_l5",
+   "display_name": "Vertebra L5",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 1,
+   "class_name": "vertebra_l5",
+   "aliases": [
+    "l5",
+    "vertebral5"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_l4",
+   "display_name": "Vertebra L4",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 2,
+   "class_name": "vertebra_l4",
+   "aliases": [
+    "l4",
+    "vertebral4"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_l3",
+   "display_name": "Vertebra L3",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 3,
+   "class_name": "vertebra_l3",
+   "aliases": [
+    "l3",
+    "vertebral3"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_l2",
+   "display_name": "Vertebra L2",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 4,
+   "class_name": "vertebra_l2",
+   "aliases": [
+    "l2",
+    "vertebral2"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_l1",
+   "display_name": "Vertebra L1",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 5,
+   "class_name": "vertebra_l1",
+   "aliases": [
+    "l1",
+    "vertebral1"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t12",
+   "display_name": "Vertebra T12",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 6,
+   "class_name": "vertebra_t12",
+   "aliases": [
+    "t12",
+    "vertebrat12"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t11",
+   "display_name": "Vertebra T11",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 7,
+   "class_name": "vertebra_t11",
+   "aliases": [
+    "t11",
+    "vertebrat11"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t10",
+   "display_name": "Vertebra T10",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 8,
+   "class_name": "vertebra_t10",
+   "aliases": [
+    "t10",
+    "vertebrat10"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t9",
+   "display_name": "Vertebra T9",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 9,
+   "class_name": "vertebra_t9",
+   "aliases": [
+    "t9",
+    "vertebrat9"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t8",
+   "display_name": "Vertebra T8",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 10,
+   "class_name": "vertebra_t8",
+   "aliases": [
+    "t8",
+    "vertebrat8"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t7",
+   "display_name": "Vertebra T7",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 11,
+   "class_name": "vertebra_t7",
+   "aliases": [
+    "t7",
+    "vertebrat7"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t6",
+   "display_name": "Vertebra T6",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 12,
+   "class_name": "vertebra_t6",
+   "aliases": [
+    "t6",
+    "vertebrat6"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t5",
+   "display_name": "Vertebra T5",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 13,
+   "class_name": "vertebra_t5",
+   "aliases": [
+    "t5",
+    "vertebrat5"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t4",
+   "display_name": "Vertebra T4",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 14,
+   "class_name": "vertebra_t4",
+   "aliases": [
+    "t4",
+    "vertebrat4"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t3",
+   "display_name": "Vertebra T3",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 15,
+   "class_name": "vertebra_t3",
+   "aliases": [
+    "t3",
+    "vertebrat3"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t2",
+   "display_name": "Vertebra T2",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 16,
+   "class_name": "vertebra_t2",
+   "aliases": [
+    "t2",
+    "vertebrat2"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_t1",
+   "display_name": "Vertebra T1",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 17,
+   "class_name": "vertebra_t1",
+   "aliases": [
+    "t1",
+    "vertebrat1"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c7",
+   "display_name": "Vertebra C7",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 18,
+   "class_name": "vertebra_c7",
+   "aliases": [
+    "c7",
+    "vertebrac7"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c6",
+   "display_name": "Vertebra C6",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 19,
+   "class_name": "vertebra_c6",
+   "aliases": [
+    "c6",
+    "vertebrac6"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c5",
+   "display_name": "Vertebra C5",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 20,
+   "class_name": "vertebra_c5",
+   "aliases": [
+    "c5",
+    "vertebrac5"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c4",
+   "display_name": "Vertebra C4",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 21,
+   "class_name": "vertebra_c4",
+   "aliases": [
+    "c4",
+    "vertebrac4"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c3",
+   "display_name": "Vertebra C3",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 22,
+   "class_name": "vertebra_c3",
+   "aliases": [
+    "c3",
+    "vertebrac3"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c2",
+   "display_name": "Vertebra C2",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 23,
+   "class_name": "vertebra_c2",
+   "aliases": [
+    "c2",
+    "vertebrac2"
+   ]
+  },
+  {
+   "id": "cads_552.vertebra_c1",
+   "display_name": "Vertebra C1",
+   "group": "Vertebrae",
+   "modality": "CT",
+   "source_model": "cads_552",
+   "label_index": 24,
+   "class_name": "vertebra_c1",
+   "aliases": [
+    "c1",
+    "vertebrac1"
+   ]
+  },
+  {
+   "id": "cads_553.esophagus",
+   "display_name": "Esophagus",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 1,
+   "class_name": "esophagus",
+   "aliases": [
+    "esophagus",
+    "oesophagus"
+   ]
+  },
+  {
+   "id": "cads_553.trachea",
+   "display_name": "Trachea",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 2,
+   "class_name": "trachea",
+   "aliases": [
+    "trachea"
+   ]
+  },
+  {
+   "id": "cads_553.myocardium",
+   "display_name": "Myocardium",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 3,
+   "class_name": "myocardium",
+   "aliases": [
+    "myocardium"
+   ]
+  },
+  {
+   "id": "cads_553.atrium_l",
+   "display_name": "Atrium L",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 4,
+   "class_name": "atrium_l",
+   "aliases": [
+    "atriuml",
+    "atriumleft",
+    "latrium",
+    "leftatrium"
+   ]
+  },
+  {
+   "id": "cads_553.heart_ventricle_l",
+   "display_name": "Heart ventricle L",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 5,
+   "class_name": "heart_ventricle_l",
+   "aliases": [
+    "heartventriclel",
+    "heartventricleleft",
+    "leftheartventricle",
+    "lheartventricle"
+   ]
+  },
+  {
+   "id": "cads_553.atrium_r",
+   "display_name": "Atrium R",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 6,
+   "class_name": "atrium_r",
+   "aliases": [
+    "atriumr",
+    "atriumright",
+    "ratrium",
+    "rightatrium"
+   ]
+  },
+  {
+   "id": "cads_553.heart_ventricle_r",
+   "display_name": "Heart ventricle R",
+   "group": "Thoracic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 7,
+   "class_name": "heart_ventricle_r",
+   "aliases": [
+    "heartventricler",
+    "heartventricleright",
+    "rheartventricle",
+    "rightheartventricle"
+   ]
+  },
+  {
+   "id": "cads_553.pulmonary_artery",
+   "display_name": "Pulmonary artery",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 8,
+   "class_name": "pulmonary_artery",
+   "aliases": [
+    "pulmonaryartery"
+   ]
+  },
+  {
+   "id": "cads_553.brain",
+   "display_name": "Brain",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 9,
+   "class_name": "brain",
+   "aliases": [
+    "brain"
+   ]
+  },
+  {
+   "id": "cads_553.common_iliac_artery_l",
+   "display_name": "Common iliac artery L",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 10,
+   "class_name": "common_iliac_artery_l",
+   "aliases": [
+    "commoniliacarteryl",
+    "commoniliacarteryleft",
+    "lcommoniliacartery",
+    "leftcommoniliacartery"
+   ]
+  },
+  {
+   "id": "cads_553.common_iliac_artery_r",
+   "display_name": "Common iliac artery R",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 11,
+   "class_name": "common_iliac_artery_r",
+   "aliases": [
+    "commoniliacarteryr",
+    "commoniliacarteryright",
+    "rcommoniliacartery",
+    "rightcommoniliacartery"
+   ]
+  },
+  {
+   "id": "cads_553.common_iliac_vein_l",
+   "display_name": "Common iliac vein L",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 12,
+   "class_name": "common_iliac_vein_l",
+   "aliases": [
+    "commoniliacveinl",
+    "commoniliacveinleft",
+    "lcommoniliacvein",
+    "leftcommoniliacvein"
+   ]
+  },
+  {
+   "id": "cads_553.common_iliac_vein_r",
+   "display_name": "Common iliac vein R",
+   "group": "Vessels",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 13,
+   "class_name": "common_iliac_vein_r",
+   "aliases": [
+    "commoniliacveinr",
+    "commoniliacveinright",
+    "rcommoniliacvein",
+    "rightcommoniliacvein"
+   ]
+  },
+  {
+   "id": "cads_553.small_intestine",
+   "display_name": "Small intestine",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 14,
+   "class_name": "small_intestine",
+   "aliases": [
+    "smallintestine"
+   ]
+  },
+  {
+   "id": "cads_553.duodenum",
+   "display_name": "Duodenum",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 15,
+   "class_name": "duodenum",
+   "aliases": [
+    "duodenum"
+   ]
+  },
+  {
+   "id": "cads_553.colon",
+   "display_name": "Colon",
+   "group": "Abdominal organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 16,
+   "class_name": "colon",
+   "aliases": [
+    "colon"
+   ]
+  },
+  {
+   "id": "cads_553.urinary_bladder",
+   "display_name": "Urinary bladder",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 17,
+   "class_name": "urinary_bladder",
+   "aliases": [
+    "bladder",
+    "urinarybladder"
+   ]
+  },
+  {
+   "id": "cads_553.face",
+   "display_name": "Face",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_553",
+   "label_index": 18,
+   "class_name": "face",
+   "aliases": [
+    "face"
+   ]
+  },
+  {
+   "id": "cads_554.humerus_l",
+   "display_name": "Humerus L",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 1,
+   "class_name": "humerus_l",
+   "aliases": [
+    "humerusl",
+    "humerusleft",
+    "lefthumerus",
+    "lhumerus"
+   ]
+  },
+  {
+   "id": "cads_554.humerus_r",
+   "display_name": "Humerus R",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 2,
+   "class_name": "humerus_r",
+   "aliases": [
+    "humerusr",
+    "humerusright",
+    "rhumerus",
+    "righthumerus"
+   ]
+  },
+  {
+   "id": "cads_554.scapula_l",
+   "display_name": "Scapula L",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 3,
+   "class_name": "scapula_l",
+   "aliases": [
+    "leftscapula",
+    "lscapula",
+    "scapulal",
+    "scapulaleft"
+   ]
+  },
+  {
+   "id": "cads_554.scapula_r",
+   "display_name": "Scapula R",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 4,
+   "class_name": "scapula_r",
+   "aliases": [
+    "rightscapula",
+    "rscapula",
+    "scapular",
+    "scapularight"
+   ]
+  },
+  {
+   "id": "cads_554.clavicle_l",
+   "display_name": "Clavicle L",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 5,
+   "class_name": "clavicle_l",
+   "aliases": [
+    "claviclel",
+    "clavicleleft",
+    "lclavicle",
+    "leftclavicle"
+   ]
+  },
+  {
+   "id": "cads_554.clavicle_r",
+   "display_name": "Clavicle R",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 6,
+   "class_name": "clavicle_r",
+   "aliases": [
+    "clavicler",
+    "clavicleright",
+    "rclavicle",
+    "rightclavicle"
+   ]
+  },
+  {
+   "id": "cads_554.femur_l",
+   "display_name": "Femur L",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 7,
+   "class_name": "femur_l",
+   "aliases": [
+    "femurl",
+    "femurleft",
+    "leftfemur",
+    "lfemur"
+   ]
+  },
+  {
+   "id": "cads_554.femur_r",
+   "display_name": "Femur R",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 8,
+   "class_name": "femur_r",
+   "aliases": [
+    "femurr",
+    "femurright",
+    "rfemur",
+    "rightfemur"
+   ]
+  },
+  {
+   "id": "cads_554.hip_l",
+   "display_name": "Hip L",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 9,
+   "class_name": "hip_l",
+   "aliases": [
+    "hipl",
+    "hipleft",
+    "lefthip",
+    "lhip"
+   ]
+  },
+  {
+   "id": "cads_554.hip_r",
+   "display_name": "Hip R",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 10,
+   "class_name": "hip_r",
+   "aliases": [
+    "hipr",
+    "hipright",
+    "rhip",
+    "righthip"
+   ]
+  },
+  {
+   "id": "cads_554.sacrum",
+   "display_name": "Sacrum",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 11,
+   "class_name": "sacrum",
+   "aliases": [
+    "sacrum",
+    "sacrumbone"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_maximus_muscle_l",
+   "display_name": "Gluteus maximus muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 12,
+   "class_name": "gluteus_maximus_muscle_l",
+   "aliases": [
+    "gluteusmaximusmusclel",
+    "gluteusmaximusmuscleleft",
+    "leftgluteusmaximusmuscle",
+    "lgluteusmaximusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_maximus_muscle_r",
+   "display_name": "Gluteus maximus muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 13,
+   "class_name": "gluteus_maximus_muscle_r",
+   "aliases": [
+    "gluteusmaximusmuscler",
+    "gluteusmaximusmuscleright",
+    "rgluteusmaximusmuscle",
+    "rightgluteusmaximusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_medius_muscle_l",
+   "display_name": "Gluteus medius muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 14,
+   "class_name": "gluteus_medius_muscle_l",
+   "aliases": [
+    "gluteusmediusmusclel",
+    "gluteusmediusmuscleleft",
+    "leftgluteusmediusmuscle",
+    "lgluteusmediusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_medius_muscle_r",
+   "display_name": "Gluteus medius muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 15,
+   "class_name": "gluteus_medius_muscle_r",
+   "aliases": [
+    "gluteusmediusmuscler",
+    "gluteusmediusmuscleright",
+    "rgluteusmediusmuscle",
+    "rightgluteusmediusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_minius_muscle_l",
+   "display_name": "Gluteus minius muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 16,
+   "class_name": "gluteus_minius_muscle_l",
+   "aliases": [
+    "gluteusminiusmusclel",
+    "gluteusminiusmuscleleft",
+    "leftgluteusminiusmuscle",
+    "lgluteusminiusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.gluteus_minius_muscle_r",
+   "display_name": "Gluteus minius muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 17,
+   "class_name": "gluteus_minius_muscle_r",
+   "aliases": [
+    "gluteusminiusmuscler",
+    "gluteusminiusmuscleright",
+    "rgluteusminiusmuscle",
+    "rightgluteusminiusmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.deep_muscle_of_back_l",
+   "display_name": "Deep muscle of back L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 18,
+   "class_name": "deep_muscle_of_back_l",
+   "aliases": [
+    "deepmuscleofbackl",
+    "deepmuscleofbackleft",
+    "ldeepmuscleofback",
+    "leftdeepmuscleofback"
+   ]
+  },
+  {
+   "id": "cads_554.deep_muscle_of_back_r",
+   "display_name": "Deep muscle of back R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 19,
+   "class_name": "deep_muscle_of_back_r",
+   "aliases": [
+    "deepmuscleofbackr",
+    "deepmuscleofbackright",
+    "rdeepmuscleofback",
+    "rightdeepmuscleofback"
+   ]
+  },
+  {
+   "id": "cads_554.iliopsoas_muscle_l",
+   "display_name": "Iliopsoas muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 20,
+   "class_name": "iliopsoas_muscle_l",
+   "aliases": [
+    "iliopsoasmusclel",
+    "iliopsoasmuscleleft",
+    "leftiliopsoasmuscle",
+    "liliopsoasmuscle"
+   ]
+  },
+  {
+   "id": "cads_554.iliopsoas_muscle_r",
+   "display_name": "Iliopsoas muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_554",
+   "label_index": 21,
+   "class_name": "iliopsoas_muscle_r",
+   "aliases": [
+    "iliopsoasmuscler",
+    "iliopsoasmuscleright",
+    "rightiliopsoasmuscle",
+    "riliopsoasmuscle"
+   ]
+  },
+  {
+   "id": "cads_555.rib_1_l",
+   "display_name": "Rib-1 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 1,
+   "class_name": "rib_1_l",
+   "aliases": [
+    "leftrib1",
+    "lrib1",
+    "rib1l",
+    "rib1left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_2_l",
+   "display_name": "Rib-2 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 2,
+   "class_name": "rib_2_l",
+   "aliases": [
+    "leftrib2",
+    "lrib2",
+    "rib2l",
+    "rib2left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_3_l",
+   "display_name": "Rib-3 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 3,
+   "class_name": "rib_3_l",
+   "aliases": [
+    "leftrib3",
+    "lrib3",
+    "rib3l",
+    "rib3left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_4_l",
+   "display_name": "Rib-4 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 4,
+   "class_name": "rib_4_l",
+   "aliases": [
+    "leftrib4",
+    "lrib4",
+    "rib4l",
+    "rib4left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_5_l",
+   "display_name": "Rib-5 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 5,
+   "class_name": "rib_5_l",
+   "aliases": [
+    "leftrib5",
+    "lrib5",
+    "rib5l",
+    "rib5left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_6_l",
+   "display_name": "Rib-6 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 6,
+   "class_name": "rib_6_l",
+   "aliases": [
+    "leftrib6",
+    "lrib6",
+    "rib6l",
+    "rib6left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_7_l",
+   "display_name": "Rib-7 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 7,
+   "class_name": "rib_7_l",
+   "aliases": [
+    "leftrib7",
+    "lrib7",
+    "rib7l",
+    "rib7left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_8_l",
+   "display_name": "Rib-8 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 8,
+   "class_name": "rib_8_l",
+   "aliases": [
+    "leftrib8",
+    "lrib8",
+    "rib8l",
+    "rib8left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_9_l",
+   "display_name": "Rib-9 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 9,
+   "class_name": "rib_9_l",
+   "aliases": [
+    "leftrib9",
+    "lrib9",
+    "rib9l",
+    "rib9left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_10_l",
+   "display_name": "Rib-10 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 10,
+   "class_name": "rib_10_l",
+   "aliases": [
+    "leftrib10",
+    "lrib10",
+    "rib10l",
+    "rib10left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_11_l",
+   "display_name": "Rib-11 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 11,
+   "class_name": "rib_11_l",
+   "aliases": [
+    "leftrib11",
+    "lrib11",
+    "rib11l",
+    "rib11left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_12_l",
+   "display_name": "Rib-12 L",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 12,
+   "class_name": "rib_12_l",
+   "aliases": [
+    "leftrib12",
+    "lrib12",
+    "rib12l",
+    "rib12left"
+   ]
+  },
+  {
+   "id": "cads_555.rib_1_r",
+   "display_name": "Rib-1 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 13,
+   "class_name": "rib_1_r",
+   "aliases": [
+    "rib1r",
+    "rib1right",
+    "rightrib1",
+    "rrib1"
+   ]
+  },
+  {
+   "id": "cads_555.rib_2_r",
+   "display_name": "Rib-2 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 14,
+   "class_name": "rib_2_r",
+   "aliases": [
+    "rib2r",
+    "rib2right",
+    "rightrib2",
+    "rrib2"
+   ]
+  },
+  {
+   "id": "cads_555.rib_3_r",
+   "display_name": "Rib-3 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 15,
+   "class_name": "rib_3_r",
+   "aliases": [
+    "rib3r",
+    "rib3right",
+    "rightrib3",
+    "rrib3"
+   ]
+  },
+  {
+   "id": "cads_555.rib_4_r",
+   "display_name": "Rib-4 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 16,
+   "class_name": "rib_4_r",
+   "aliases": [
+    "rib4r",
+    "rib4right",
+    "rightrib4",
+    "rrib4"
+   ]
+  },
+  {
+   "id": "cads_555.rib_5_r",
+   "display_name": "Rib-5 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 17,
+   "class_name": "rib_5_r",
+   "aliases": [
+    "rib5r",
+    "rib5right",
+    "rightrib5",
+    "rrib5"
+   ]
+  },
+  {
+   "id": "cads_555.rib_6_r",
+   "display_name": "Rib-6 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 18,
+   "class_name": "rib_6_r",
+   "aliases": [
+    "rib6r",
+    "rib6right",
+    "rightrib6",
+    "rrib6"
+   ]
+  },
+  {
+   "id": "cads_555.rib_7_r",
+   "display_name": "Rib-7 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 19,
+   "class_name": "rib_7_r",
+   "aliases": [
+    "rib7r",
+    "rib7right",
+    "rightrib7",
+    "rrib7"
+   ]
+  },
+  {
+   "id": "cads_555.rib_8_r",
+   "display_name": "Rib-8 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 20,
+   "class_name": "rib_8_r",
+   "aliases": [
+    "rib8r",
+    "rib8right",
+    "rightrib8",
+    "rrib8"
+   ]
+  },
+  {
+   "id": "cads_555.rib_9_r",
+   "display_name": "Rib-9 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 21,
+   "class_name": "rib_9_r",
+   "aliases": [
+    "rib9r",
+    "rib9right",
+    "rightrib9",
+    "rrib9"
+   ]
+  },
+  {
+   "id": "cads_555.rib_10_r",
+   "display_name": "Rib-10 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 22,
+   "class_name": "rib_10_r",
+   "aliases": [
+    "rib10r",
+    "rib10right",
+    "rightrib10",
+    "rrib10"
+   ]
+  },
+  {
+   "id": "cads_555.rib_11_r",
+   "display_name": "Rib-11 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 23,
+   "class_name": "rib_11_r",
+   "aliases": [
+    "rib11r",
+    "rib11right",
+    "rightrib11",
+    "rrib11"
+   ]
+  },
+  {
+   "id": "cads_555.rib_12_r",
+   "display_name": "Rib-12 R",
+   "group": "Ribs",
+   "modality": "CT",
+   "source_model": "cads_555",
+   "label_index": 24,
+   "class_name": "rib_12_r",
+   "aliases": [
+    "rib12r",
+    "rib12right",
+    "rightrib12",
+    "rrib12"
+   ]
+  },
+  {
+   "id": "cads_556.spinal_canal",
+   "display_name": "Spinal canal",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 1,
+   "class_name": "spinal_canal",
+   "aliases": [
+    "canalspinal",
+    "spinalcanal"
+   ]
+  },
+  {
+   "id": "cads_556.larynx",
+   "display_name": "Larynx",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 2,
+   "class_name": "larynx",
+   "aliases": [
+    "larynx",
+    "larynxwhole"
+   ]
+  },
+  {
+   "id": "cads_556.heart",
+   "display_name": "Heart",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 3,
+   "class_name": "heart",
+   "aliases": [
+    "heart"
+   ]
+  },
+  {
+   "id": "cads_556.bowel_space",
+   "display_name": "Bowel space",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 4,
+   "class_name": "bowel_space",
+   "aliases": [
+    "bowel",
+    "bowelbag",
+    "bowelsmall",
+    "bowelspace"
+   ]
+  },
+  {
+   "id": "cads_556.sigmoid_colon",
+   "display_name": "Sigmoid colon",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 5,
+   "class_name": "sigmoid_colon",
+   "aliases": [
+    "sigmoid",
+    "sigmoidcolon"
+   ]
+  },
+  {
+   "id": "cads_556.rectum",
+   "display_name": "Rectum",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 6,
+   "class_name": "rectum",
+   "aliases": [
+    "rectum"
+   ]
+  },
+  {
+   "id": "cads_556.prostate",
+   "display_name": "Prostate",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 7,
+   "class_name": "prostate",
+   "aliases": [
+    "prostate"
+   ]
+  },
+  {
+   "id": "cads_556.seminal_vesicle",
+   "display_name": "Seminal vesicle",
+   "group": "Pelvic organs",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 8,
+   "class_name": "seminal_vesicle",
+   "aliases": [
+    "seminalves",
+    "seminalvesicle",
+    "vesiclesseminal"
+   ]
+  },
+  {
+   "id": "cads_556.mammary_gland_l",
+   "display_name": "Mammary gland L",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 9,
+   "class_name": "mammary_gland_l",
+   "aliases": [
+    "breastl",
+    "breastleft",
+    "lbreast",
+    "leftbreast",
+    "leftmammarygland",
+    "lmammarygland",
+    "mammaryglandl",
+    "mammaryglandleft"
+   ]
+  },
+  {
+   "id": "cads_556.mammary_gland_r",
+   "display_name": "Mammary gland R",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 10,
+   "class_name": "mammary_gland_r",
+   "aliases": [
+    "breastr",
+    "breastright",
+    "mammaryglandr",
+    "mammaryglandright",
+    "rbreast",
+    "rightbreast",
+    "rightmammarygland",
+    "rmammarygland"
+   ]
+  },
+  {
+   "id": "cads_556.sternum",
+   "display_name": "Sternum",
+   "group": "Radiotherapy structures",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 11,
+   "class_name": "sternum",
+   "aliases": [
+    "sternum",
+    "sternumbone"
+   ]
+  },
+  {
+   "id": "cads_556.psoas_major_muscle_r",
+   "display_name": "Psoas major muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 12,
+   "class_name": "psoas_major_muscle_r",
+   "aliases": [
+    "psoasmajormuscler",
+    "psoasmajormuscleright",
+    "rightpsoasmajormuscle",
+    "rpsoasmajormuscle"
+   ]
+  },
+  {
+   "id": "cads_556.psoas_major_muscle_l",
+   "display_name": "Psoas major muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 13,
+   "class_name": "psoas_major_muscle_l",
+   "aliases": [
+    "leftpsoasmajormuscle",
+    "lpsoasmajormuscle",
+    "psoasmajormusclel",
+    "psoasmajormuscleleft"
+   ]
+  },
+  {
+   "id": "cads_556.rectus_abdominis_muscle_r",
+   "display_name": "Rectus abdominis muscle R",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 14,
+   "class_name": "rectus_abdominis_muscle_r",
+   "aliases": [
+    "rectusabdominismuscler",
+    "rectusabdominismuscleright",
+    "rightrectusabdominismuscle",
+    "rrectusabdominismuscle"
+   ]
+  },
+  {
+   "id": "cads_556.rectus_abdominis_muscle_l",
+   "display_name": "Rectus abdominis muscle L",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_556",
+   "label_index": 15,
+   "class_name": "rectus_abdominis_muscle_l",
+   "aliases": [
+    "leftrectusabdominismuscle",
+    "lrectusabdominismuscle",
+    "rectusabdominismusclel",
+    "rectusabdominismuscleleft"
+   ]
+  },
+  {
+   "id": "cads_557.white_matter",
+   "display_name": "White matter",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 1,
+   "class_name": "white_matter",
+   "aliases": [
+    "whitematter"
+   ]
+  },
+  {
+   "id": "cads_557.gray_matter",
+   "display_name": "Gray matter",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 2,
+   "class_name": "gray_matter",
+   "aliases": [
+    "graymatter"
+   ]
+  },
+  {
+   "id": "cads_557.cerebrospinal_fluid",
+   "display_name": "Cerebrospinal fluid",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 3,
+   "class_name": "cerebrospinal_fluid",
+   "aliases": [
+    "cerebrospinalfluid"
+   ]
+  },
+  {
+   "id": "cads_557.scalp",
+   "display_name": "Scalp",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 4,
+   "class_name": "scalp",
+   "aliases": [
+    "scalp"
+   ]
+  },
+  {
+   "id": "cads_557.eyeball",
+   "display_name": "Eyeball",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 5,
+   "class_name": "eyeball",
+   "aliases": [
+    "eyeball"
+   ]
+  },
+  {
+   "id": "cads_557.compact_bone",
+   "display_name": "Compact bone",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 6,
+   "class_name": "compact_bone",
+   "aliases": [
+    "compactbone"
+   ]
+  },
+  {
+   "id": "cads_557.spongy_bone",
+   "display_name": "Spongy bone",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 7,
+   "class_name": "spongy_bone",
+   "aliases": [
+    "spongybone"
+   ]
+  },
+  {
+   "id": "cads_557.blood",
+   "display_name": "Blood",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 8,
+   "class_name": "blood",
+   "aliases": [
+    "blood"
+   ]
+  },
+  {
+   "id": "cads_557.muscle_of_head",
+   "display_name": "Muscle of head",
+   "group": "Brain & head tissue",
+   "modality": "CT",
+   "source_model": "cads_557",
+   "label_index": 9,
+   "class_name": "muscle_of_head",
+   "aliases": [
+    "muscleofhead"
+   ]
+  },
+  {
+   "id": "cads_558.carotid_artery_l",
+   "display_name": "Carotid artery L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 1,
+   "class_name": "carotid_artery_l",
+   "aliases": [
+    "carotidarteryl",
+    "carotidarteryleft",
+    "lcarotidartery",
+    "leftcarotidartery"
+   ]
+  },
+  {
+   "id": "cads_558.carotid_artery_r",
+   "display_name": "Carotid artery R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 2,
+   "class_name": "carotid_artery_r",
+   "aliases": [
+    "carotidarteryr",
+    "carotidarteryright",
+    "rcarotidartery",
+    "rightcarotidartery"
+   ]
+  },
+  {
+   "id": "cads_558.arytenoid_cartilage",
+   "display_name": "Arytenoid cartilage",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 3,
+   "class_name": "arytenoid_cartilage",
+   "aliases": [
+    "arytenoid",
+    "arytenoidcartilage",
+    "cartilagearyt"
+   ]
+  },
+  {
+   "id": "cads_558.mandible",
+   "display_name": "Mandible",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 4,
+   "class_name": "mandible",
+   "aliases": [
+    "mandible"
+   ]
+  },
+  {
+   "id": "cads_558.brainstem",
+   "display_name": "Brainstem",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 5,
+   "class_name": "brainstem",
+   "aliases": [
+    "brainstem",
+    "stembrain"
+   ]
+  },
+  {
+   "id": "cads_558.buccal_mucosa",
+   "display_name": "Buccal mucosa",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 6,
+   "class_name": "buccal_mucosa",
+   "aliases": [
+    "buccalmucosa"
+   ]
+  },
+  {
+   "id": "cads_558.oral_cavity",
+   "display_name": "Oral cavity",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 7,
+   "class_name": "oral_cavity",
+   "aliases": [
+    "cavityoral",
+    "oralcavity"
+   ]
+  },
+  {
+   "id": "cads_558.cochlear_l",
+   "display_name": "Cochlear L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 8,
+   "class_name": "cochlear_l",
+   "aliases": [
+    "cochlearl",
+    "cochlearleft",
+    "lcochlear",
+    "leftcochlear"
+   ]
+  },
+  {
+   "id": "cads_558.cochlear_r",
+   "display_name": "Cochlear R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 9,
+   "class_name": "cochlear_r",
+   "aliases": [
+    "cochlearr",
+    "cochlearright",
+    "rcochlear",
+    "rightcochlear"
+   ]
+  },
+  {
+   "id": "cads_558.cricopharyngeus",
+   "display_name": "Cricopharyngeus",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 10,
+   "class_name": "cricopharyngeus",
+   "aliases": [
+    "crico",
+    "cricopharyngealinlet",
+    "cricopharyngeus"
+   ]
+  },
+  {
+   "id": "cads_558.cervical_esophagus",
+   "display_name": "Cervical esophagus",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 11,
+   "class_name": "cervical_esophagus",
+   "aliases": [
+    "cervicalesophagus",
+    "cervicaloesophagus",
+    "esophaguscerv",
+    "oesophaguscerv"
+   ]
+  },
+  {
+   "id": "cads_558.anterior_eyeball_segment_l",
+   "display_name": "Anterior eyeball segment L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 12,
+   "class_name": "anterior_eyeball_segment_l",
+   "aliases": [
+    "anterioreyeballsegmentl",
+    "anterioreyeballsegmentleft",
+    "lanterioreyeballsegment",
+    "leftanterioreyeballsegment"
+   ]
+  },
+  {
+   "id": "cads_558.anterior_eyeball_segment_r",
+   "display_name": "Anterior eyeball segment R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 13,
+   "class_name": "anterior_eyeball_segment_r",
+   "aliases": [
+    "anterioreyeballsegmentr",
+    "anterioreyeballsegmentright",
+    "ranterioreyeballsegment",
+    "rightanterioreyeballsegment"
+   ]
+  },
+  {
+   "id": "cads_558.posterior_eyeball_segment_l",
+   "display_name": "Posterior eyeball segment L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 14,
+   "class_name": "posterior_eyeball_segment_l",
+   "aliases": [
+    "leftposterioreyeballsegment",
+    "lposterioreyeballsegment",
+    "posterioreyeballsegmentl",
+    "posterioreyeballsegmentleft"
+   ]
+  },
+  {
+   "id": "cads_558.posterior_eyeball_segment_r",
+   "display_name": "Posterior eyeball segment R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 15,
+   "class_name": "posterior_eyeball_segment_r",
+   "aliases": [
+    "posterioreyeballsegmentr",
+    "posterioreyeballsegmentright",
+    "rightposterioreyeballsegment",
+    "rposterioreyeballsegment"
+   ]
+  },
+  {
+   "id": "cads_558.lacrimal_gland_l",
+   "display_name": "Lacrimal gland L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 16,
+   "class_name": "lacrimal_gland_l",
+   "aliases": [
+    "glndlacrimall",
+    "lacrimalglandl",
+    "lacrimalglandleft",
+    "lacrimall",
+    "leftlacrimalgland",
+    "llacrimalgland"
+   ]
+  },
+  {
+   "id": "cads_558.lacrimal_gland_r",
+   "display_name": "Lacrimal gland R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 17,
+   "class_name": "lacrimal_gland_r",
+   "aliases": [
+    "glndlacrimalr",
+    "lacrimalglandr",
+    "lacrimalglandright",
+    "lacrimalr",
+    "rightlacrimalgland",
+    "rlacrimalgland"
+   ]
+  },
+  {
+   "id": "cads_558.submandibular_gland_l",
+   "display_name": "Submandibular gland L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 18,
+   "class_name": "submandibular_gland_l",
+   "aliases": [
+    "glndsubmandl",
+    "leftsubmandibulargland",
+    "lsubmandibulargland",
+    "smgl",
+    "submandibularglandl",
+    "submandibularglandleft",
+    "submandl"
+   ]
+  },
+  {
+   "id": "cads_558.submandibular_gland_r",
+   "display_name": "Submandibular gland R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 19,
+   "class_name": "submandibular_gland_r",
+   "aliases": [
+    "glndsubmandr",
+    "rightsubmandibulargland",
+    "rsubmandibulargland",
+    "smgr",
+    "submandibularglandr",
+    "submandibularglandright",
+    "submandr"
+   ]
+  },
+  {
+   "id": "cads_558.thyroid",
+   "display_name": "Thyroid",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 20,
+   "class_name": "thyroid",
+   "aliases": [
+    "glndthyroid",
+    "thyroid",
+    "thyroidgland"
+   ]
+  },
+  {
+   "id": "cads_558.glottis",
+   "display_name": "Glottis",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 21,
+   "class_name": "glottis",
+   "aliases": [
+    "glottis"
+   ]
+  },
+  {
+   "id": "cads_558.supraglottis",
+   "display_name": "Supraglottis",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 22,
+   "class_name": "supraglottis",
+   "aliases": [
+    "supraglottis"
+   ]
+  },
+  {
+   "id": "cads_558.both_lips",
+   "display_name": "Both lips",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 23,
+   "class_name": "both_lips",
+   "aliases": [
+    "bothlips",
+    "lip",
+    "lips"
+   ]
+  },
+  {
+   "id": "cads_558.optic_chiasm",
+   "display_name": "Optic chiasm",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 24,
+   "class_name": "optic_chiasm",
+   "aliases": [
+    "chiasm",
+    "opticchiasm"
+   ]
+  },
+  {
+   "id": "cads_558.optic_nerve_l",
+   "display_name": "Optic nerve L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 25,
+   "class_name": "optic_nerve_l",
+   "aliases": [
+    "leftopticnerve",
+    "lopticnerve",
+    "nerveopticl",
+    "opticnervel",
+    "opticnerveleft",
+    "opticnrvl"
+   ]
+  },
+  {
+   "id": "cads_558.optic_nerve_r",
+   "display_name": "Optic nerve R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 26,
+   "class_name": "optic_nerve_r",
+   "aliases": [
+    "nerveopticr",
+    "opticnerver",
+    "opticnerveright",
+    "opticnrvr",
+    "rightopticnerve",
+    "ropticnerve"
+   ]
+  },
+  {
+   "id": "cads_558.parotid_gland_l",
+   "display_name": "Parotid gland L",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 27,
+   "class_name": "parotid_gland_l",
+   "aliases": [
+    "glndparotidl",
+    "leftparotidgland",
+    "lparotid",
+    "lparotidgland",
+    "parotidglandl",
+    "parotidglandleft",
+    "parotidl"
+   ]
+  },
+  {
+   "id": "cads_558.parotid_gland_r",
+   "display_name": "Parotid gland R",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 28,
+   "class_name": "parotid_gland_r",
+   "aliases": [
+    "glndparotidr",
+    "parotidglandr",
+    "parotidglandright",
+    "parotidr",
+    "rightparotidgland",
+    "rparotid",
+    "rparotidgland"
+   ]
+  },
+  {
+   "id": "cads_558.pituitary_gland",
+   "display_name": "Pituitary gland",
+   "group": "Head & neck",
+   "modality": "CT",
+   "source_model": "cads_558",
+   "label_index": 29,
+   "class_name": "pituitary_gland",
+   "aliases": [
+    "pituitary",
+    "pituitarygland"
+   ]
+  },
+  {
+   "id": "cads_559.subcutaneous_tissue",
+   "display_name": "Subcutaneous tissue",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 1,
+   "class_name": "subcutaneous_tissue",
+   "aliases": [
+    "subcutaneoustissue"
+   ]
+  },
+  {
+   "id": "cads_559.muscle",
+   "display_name": "Muscle",
+   "group": "Muscles",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 2,
+   "class_name": "muscle",
+   "aliases": [
+    "muscle"
+   ]
+  },
+  {
+   "id": "cads_559.abdominal_cavity",
+   "display_name": "Abdominal cavity",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 3,
+   "class_name": "abdominal_cavity",
+   "aliases": [
+    "abdominalcavity"
+   ]
+  },
+  {
+   "id": "cads_559.thoracic_cavity",
+   "display_name": "Thoracic cavity",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 4,
+   "class_name": "thoracic_cavity",
+   "aliases": [
+    "thoraciccavity"
+   ]
+  },
+  {
+   "id": "cads_559.bones",
+   "display_name": "Bones",
+   "group": "Appendicular skeleton",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 5,
+   "class_name": "bones",
+   "aliases": [
+    "bones"
+   ]
+  },
+  {
+   "id": "cads_559.gland_structure",
+   "display_name": "Gland structure",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 6,
+   "class_name": "gland_structure",
+   "aliases": [
+    "glandstructure"
+   ]
+  },
+  {
+   "id": "cads_559.pericardium",
+   "display_name": "Pericardium",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 7,
+   "class_name": "pericardium",
+   "aliases": [
+    "pericardium",
+    "pericardiumsac"
+   ]
+  },
+  {
+   "id": "cads_559.prosthetic_breast_implant",
+   "display_name": "Prosthetic breast implant",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 8,
+   "class_name": "prosthetic_breast_implant",
+   "aliases": [
+    "breastimplant",
+    "implantbreast",
+    "prostheticbreastimplant"
+   ]
+  },
+  {
+   "id": "cads_559.mediastinum",
+   "display_name": "Mediastinum",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 9,
+   "class_name": "mediastinum",
+   "aliases": [
+    "mediastinum"
+   ]
+  },
+  {
+   "id": "cads_559.spinal_cord",
+   "display_name": "Spinal cord",
+   "group": "Tissue & cavities",
+   "modality": "CT",
+   "source_model": "cads_559",
+   "label_index": 10,
+   "class_name": "spinal_cord",
+   "aliases": [
+    "cordspinal",
+    "myelum",
+    "spinalcord"
+   ]
+  }
+ ],
+ "presets": [
+  {
+   "key": "rt_thorax",
+   "display_name": "RT thorax",
+   "structure_ids": [
+    "cads_556.heart",
+    "cads_556.sternum",
+    "cads_556.spinal_canal",
+    "cads_556.mammary_gland_l",
+    "cads_556.mammary_gland_r",
+    "cads_551.upper_lobe_of_lung_l",
+    "cads_551.lower_lobe_of_lung_l",
+    "cads_551.upper_lobe_of_lung_r",
+    "cads_551.middle_lobe_of_lung_r",
+    "cads_551.lower_lobe_of_lung_r",
+    "cads_553.esophagus",
+    "cads_553.trachea",
+    "cads_553.myocardium",
+    "cads_553.pulmonary_artery",
+    "cads_559.spinal_cord"
+   ],
+   "models": [
+    "cads_551",
+    "cads_553",
+    "cads_556",
+    "cads_559"
+   ]
+  },
+  {
+   "key": "rt_pelvis",
+   "display_name": "RT pelvis",
+   "structure_ids": [
+    "cads_556.rectum",
+    "cads_556.prostate",
+    "cads_556.seminal_vesicle",
+    "cads_556.sigmoid_colon",
+    "cads_556.bowel_space",
+    "cads_553.urinary_bladder",
+    "cads_554.femur_l",
+    "cads_554.femur_r",
+    "cads_554.hip_l",
+    "cads_554.hip_r",
+    "cads_554.sacrum"
+   ],
+   "models": [
+    "cads_553",
+    "cads_554",
+    "cads_556"
+   ]
+  },
+  {
+   "key": "rt_head_neck",
+   "display_name": "RT head & neck",
+   "structure_ids": [
+    "cads_558.mandible",
+    "cads_558.brainstem",
+    "cads_558.oral_cavity",
+    "cads_558.cochlear_l",
+    "cads_558.cochlear_r",
+    "cads_558.cricopharyngeus",
+    "cads_558.cervical_esophagus",
+    "cads_558.lacrimal_gland_l",
+    "cads_558.lacrimal_gland_r",
+    "cads_558.submandibular_gland_l",
+    "cads_558.submandibular_gland_r",
+    "cads_558.thyroid",
+    "cads_558.glottis",
+    "cads_558.supraglottis",
+    "cads_558.both_lips",
+    "cads_558.optic_chiasm",
+    "cads_558.optic_nerve_l",
+    "cads_558.optic_nerve_r",
+    "cads_558.parotid_gland_l",
+    "cads_558.parotid_gland_r",
+    "cads_558.pituitary_gland",
+    "cads_558.carotid_artery_l",
+    "cads_558.carotid_artery_r",
+    "cads_558.anterior_eyeball_segment_l",
+    "cads_558.anterior_eyeball_segment_r",
+    "cads_558.posterior_eyeball_segment_l",
+    "cads_558.posterior_eyeball_segment_r",
+    "cads_556.larynx",
+    "cads_556.spinal_canal",
+    "cads_559.spinal_cord"
+   ],
+   "models": [
+    "cads_556",
+    "cads_558",
+    "cads_559"
+   ]
+  },
+  {
+   "key": "rt_abdomen",
+   "display_name": "RT abdomen",
+   "structure_ids": [
+    "cads_551.liver",
+    "cads_551.spleen",
+    "cads_551.stomach",
+    "cads_551.pancreas",
+    "cads_551.kidney_l",
+    "cads_551.kidney_r",
+    "cads_551.gallbladder",
+    "cads_551.aorta",
+    "cads_551.inferior_vena_cava",
+    "cads_553.duodenum",
+    "cads_553.small_intestine",
+    "cads_553.colon",
+    "cads_559.spinal_cord"
+   ],
+   "models": [
+    "cads_551",
+    "cads_553",
+    "cads_559"
+   ]
+  }
+ ],
+ "protocols": [
+  {
+   "key": "prostate",
+   "display_name": "Prostate",
+   "site": "Pelvis",
+   "modality": "CT",
+   "models": [
+    "cads_553",
+    "cads_554",
+    "cads_556"
+   ],
+   "entries": [
+    {
+     "structure_id": "cads_553.urinary_bladder",
+     "write_as": "Bladder",
+     "dicom_type": "ORGAN",
+     "colour": "#F2C14E",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.rectum",
+     "write_as": "Rectum",
+     "dicom_type": "ORGAN",
+     "colour": "#A9714B",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.prostate",
+     "write_as": "Prostate",
+     "dicom_type": "ORGAN",
+     "colour": "#C77CFF",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.seminal_vesicle",
+     "write_as": "SeminalVes",
+     "dicom_type": "ORGAN",
+     "colour": "#B486D9",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.sigmoid_colon",
+     "write_as": "Colon_Sigmoid",
+     "dicom_type": "ORGAN",
+     "colour": "#C89060",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.bowel_space",
+     "write_as": "BowelBag",
+     "dicom_type": "ORGAN",
+     "colour": "#D2B48C",
+     "required": true
+    },
+    {
+     "structure_id": "cads_554.femur_l",
+     "write_as": "Femur_L",
+     "dicom_type": "ORGAN",
+     "colour": "#7FB069",
+     "required": true
+    },
+    {
+     "structure_id": "cads_554.femur_r",
+     "write_as": "Femur_R",
+     "dicom_type": "ORGAN",
+     "colour": "#4F9D69",
+     "required": true
+    },
+    {
+     "structure_id": "cads_554.sacrum",
+     "write_as": "Sacrum",
+     "dicom_type": "ORGAN",
+     "colour": "#9AA1AB",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.spinal_canal",
+     "write_as": "SpinalCanal",
+     "dicom_type": "ORGAN",
+     "colour": "#5AA9E6",
+     "required": true
+    }
+   ]
+  },
+  {
+   "key": "breast",
+   "display_name": "Breast",
+   "site": "Thorax",
+   "modality": "CT",
+   "models": [
+    "cads_551",
+    "cads_553",
+    "cads_556",
+    "cads_559"
+   ],
+   "entries": [
+    {
+     "structure_id": "cads_556.heart",
+     "write_as": "Heart",
+     "dicom_type": "ORGAN",
+     "colour": "#E0645C",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.upper_lobe_of_lung_l",
+     "write_as": "Lung_L_Upper",
+     "dicom_type": "ORGAN",
+     "colour": "#8FD5E8",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.lower_lobe_of_lung_l",
+     "write_as": "Lung_L_Lower",
+     "dicom_type": "ORGAN",
+     "colour": "#6FBFD8",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.upper_lobe_of_lung_r",
+     "write_as": "Lung_R_Upper",
+     "dicom_type": "ORGAN",
+     "colour": "#A8E0EF",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.middle_lobe_of_lung_r",
+     "write_as": "Lung_R_Mid",
+     "dicom_type": "ORGAN",
+     "colour": "#89CFE4",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.lower_lobe_of_lung_r",
+     "write_as": "Lung_R_Lower",
+     "dicom_type": "ORGAN",
+     "colour": "#6AB6D0",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.mammary_gland_l",
+     "write_as": "Breast_L",
+     "dicom_type": "ORGAN",
+     "colour": "#F09EBB",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.mammary_gland_r",
+     "write_as": "Breast_R",
+     "dicom_type": "ORGAN",
+     "colour": "#E88CAC",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.sternum",
+     "write_as": "Sternum",
+     "dicom_type": "ORGAN",
+     "colour": "#C9CDD3",
+     "required": true
+    },
+    {
+     "structure_id": "cads_553.esophagus",
+     "write_as": "Esophagus",
+     "dicom_type": "ORGAN",
+     "colour": "#B07CC6",
+     "required": true
+    },
+    {
+     "structure_id": "cads_559.spinal_cord",
+     "write_as": "SpinalCord",
+     "dicom_type": "ORGAN",
+     "colour": "#F2E86D",
+     "required": true
+    }
+   ]
+  },
+  {
+   "key": "head_neck",
+   "display_name": "Head & neck",
+   "site": "Head & neck",
+   "modality": "CT",
+   "models": [
+    "cads_556",
+    "cads_558",
+    "cads_559"
+   ],
+   "entries": [
+    {
+     "structure_id": "cads_558.mandible",
+     "write_as": "Mandible",
+     "dicom_type": "ORGAN",
+     "colour": "#D8CBB3",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.brainstem",
+     "write_as": "Brainstem",
+     "dicom_type": "ORGAN",
+     "colour": "#F2A65A",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.parotid_gland_l",
+     "write_as": "Parotid_L",
+     "dicom_type": "ORGAN",
+     "colour": "#7FB069",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.parotid_gland_r",
+     "write_as": "Parotid_R",
+     "dicom_type": "ORGAN",
+     "colour": "#4F9D69",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.submandibular_gland_l",
+     "write_as": "Glnd_Submand_L",
+     "dicom_type": "ORGAN",
+     "colour": "#9BC995",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.submandibular_gland_r",
+     "write_as": "Glnd_Submand_R",
+     "dicom_type": "ORGAN",
+     "colour": "#7EB878",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.optic_nerve_l",
+     "write_as": "OpticNrv_L",
+     "dicom_type": "ORGAN",
+     "colour": "#F5D06F",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.optic_nerve_r",
+     "write_as": "OpticNrv_R",
+     "dicom_type": "ORGAN",
+     "colour": "#EFC24E",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.optic_chiasm",
+     "write_as": "OpticChiasm",
+     "dicom_type": "ORGAN",
+     "colour": "#E8A33D",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.cochlear_l",
+     "write_as": "Cochlea_L",
+     "dicom_type": "ORGAN",
+     "colour": "#C9A0DC",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.cochlear_r",
+     "write_as": "Cochlea_R",
+     "dicom_type": "ORGAN",
+     "colour": "#B48BC9",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.oral_cavity",
+     "write_as": "OralCavity",
+     "dicom_type": "ORGAN",
+     "colour": "#E4B7B2",
+     "required": true
+    },
+    {
+     "structure_id": "cads_558.thyroid",
+     "write_as": "Glnd_Thyroid",
+     "dicom_type": "ORGAN",
+     "colour": "#8FBF9F",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.larynx",
+     "write_as": "Larynx",
+     "dicom_type": "ORGAN",
+     "colour": "#87A9C4",
+     "required": true
+    },
+    {
+     "structure_id": "cads_559.spinal_cord",
+     "write_as": "SpinalCord",
+     "dicom_type": "ORGAN",
+     "colour": "#F2E86D",
+     "required": true
+    },
+    {
+     "structure_id": "cads_556.spinal_canal",
+     "write_as": "SpinalCanal",
+     "dicom_type": "ORGAN",
+     "colour": "#5AA9E6",
+     "required": true
+    }
+   ]
+  },
+  {
+   "key": "abdomen",
+   "display_name": "Abdomen / liver SBRT",
+   "site": "Abdomen",
+   "modality": "CT",
+   "models": [
+    "cads_551",
+    "cads_553",
+    "cads_559"
+   ],
+   "entries": [
+    {
+     "structure_id": "cads_551.liver",
+     "write_as": "Liver",
+     "dicom_type": "ORGAN",
+     "colour": "#B5651D",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.kidney_l",
+     "write_as": "Kidney_L",
+     "dicom_type": "ORGAN",
+     "colour": "#8B6BA8",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.kidney_r",
+     "write_as": "Kidney_R",
+     "dicom_type": "ORGAN",
+     "colour": "#7458A0",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.spleen",
+     "write_as": "Spleen",
+     "dicom_type": "ORGAN",
+     "colour": "#A0522D",
+     "required": true
+    },
+    {
+     "structure_id": "cads_551.stomach",
+     "write_as": "Stomach",
+     "dicom_type": "ORGAN",
+     "colour": "#E2A16F",
+     "required": true
+    },
+    {
+     "structure_id": "cads_553.duodenum",
+     "write_as": "Duodenum",
+     "dicom_type": "ORGAN",
+     "colour": "#D98E4A",
+     "required": true
+    },
+    {
+     "structure_id": "cads_553.small_intestine",
+     "write_as": "Bowel_Small",
+     "dicom_type": "ORGAN",
+     "colour": "#D2B48C",
+     "required": true
+    },
+    {
+     "structure_id": "cads_553.colon",
+     "write_as": "Bowel_Large",
+     "dicom_type": "ORGAN",
+     "colour": "#C89060",
+     "required": true
+    },
+    {
+     "structure_id": "cads_559.spinal_cord",
+     "write_as": "SpinalCord",
+     "dicom_type": "ORGAN",
+     "colour": "#F2E86D",
+     "required": true
+    }
+   ]
+  }
+ ]
+}

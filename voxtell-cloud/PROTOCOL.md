@@ -488,6 +488,137 @@ Interactive docs: <https://voxtell.dicomsegvr.com/v1/docs>
 
 ---
 
+## Model addressing
+
+A job names **either** free-text `prompts` **or** catalog `structure_ids`, never
+both. `GET /v1/models` (unauthenticated) returns the catalog: models, structures,
+display groups, presets and clinic protocols.
+
+| field | shape | notes |
+|---|---|---|
+| `prompts` | `list[str]` | Free text for a prompt model. Was required; now optional. |
+| `model` | `str \| null` | Prompt-model key. **Omit for the default.** Rejected alongside `structure_ids`. |
+| `structure_ids` | `list[str]` | Namespaced `{model}.{class_name}`, e.g. `cads_556.rectum`. |
+
+**Models are derived, never named alongside structures.** Asking for one brain
+structure and one liver structure must load two networks, and letting the client
+also name a model invites a request whose model and structures contradict each
+other. The server computes the minimal model set from the ids and persists it on
+the job (`models`).
+
+**Omitting `model` means the default, forever.** Eclipse approves a plugin DLL by
+version *and* content hash, on every workstation, so a clinic cannot be rolled
+forward on our schedule. A request shaped exactly like the one an already-approved
+plugin sends must keep working indefinitely; `tests/test_catalog.py` pins that.
+
+### Clinic protocols
+
+A **preset** is a list of structure ids. A **protocol** is a preset plus the naming a
+clinic actually uses, and it exists because the alternative is a planner typing the
+write-as id, the DICOM type and the colour per row on every run — the naming drift
+published audits of this workflow blame for silently losing cases.
+
+```json
+{"key": "prostate", "display_name": "Prostate", "site": "Pelvis", "modality": "CT",
+ "models": ["cads_553", "cads_554", "cads_556"],
+ "entries": [
+   {"structure_id": "cads_556.rectum", "write_as": "Rectum",
+    "dicom_type": "ORGAN", "colour": "#A9714B", "required": true}
+ ]}
+```
+
+Refused at load (`CatalogError`, a startup failure) because each one decides what is
+written into a patient: a `write_as` that is empty or longer than **Eclipse's 16
+characters**, two entries in one protocol writing the same id, a `dicom_type` Eclipse
+does not know, a malformed `colour`, a duplicate protocol key, an unknown model, or the
+same `structure_id` twice.
+
+**Not** refused: an entry naming a structure no model produces. A site protocol
+legitimately lists what the plan needs, including structures a human contours, so the
+plugin renders those as *"no model produces this"* rather than dropping them — dropping
+one silently yields a run that looks complete and is short a structure.
+
+`presets` stays in the response for as long as a 2.1.x plugin is approved on any
+workstation: that build reads presets and knows nothing about protocols. Additive only,
+for the same reason `model` stays a bare string in `result.json`.
+
+### Structure name matching
+
+`aliases` on each catalog structure are **pre-normalised** match keys: lowercase,
+alphanumerics only, so `Kidney_R`, `Kidney R` and `kidney-r` all resolve to the same
+structure. The rule is implemented three times — `voxtell_cloud.catalog.normalise`,
+`scripts/gen_catalog.py:norm`, and `ModelCatalog.Normalise` in the plugin — and the
+three must agree. When they do not, nothing raises: auto-detect simply reports
+"0 recognised" on a series full of contours. `tests/test_catalog.py` pins the exact
+pairs the plugin's `--selftest` also asserts.
+
+An unmatched name resolves to **null, never a guess**. The plugin shows it to the
+planner as unrecognised; silently skipping off-convention names is the commonest
+failure reported in published audits of this workflow.
+
+### `result.json` schema 3
+
+Additive over schema 2. `model` stays a **plain string** so already-approved plugins
+keep deserialising it; Newtonsoft ignores keys it does not know, which is what makes
+additive changes free and renames expensive.
+
+```json
+{"schema": 3, "job_id": "...",
+ "model": "cads_551",
+ "models": [{"key": "cads_551", "kind": "cads", "task": "551",
+             "weights_variant": "open", "weights_licence": "CC-BY-SA-4.0"}],
+ "prompts": [], "structure_ids": ["cads_551.liver"],
+ "results": [{"structure_id": "cads_551.liver", "model": "cads_551",
+              "voxel_count": 812345, "contours": [...]}]}
+```
+
+`weights_licence` is recorded **per job**. CADS publishes three weight variants under
+three licences chosen by a CLI flag and only `open` (CC BY-SA 4.0) permits commercial
+use, so "which licence produced this patient's contours" is a question a clinic may
+have to answer later; reconstructing it afterwards from whatever is deployed then
+would be a guess.
+
+## QA lineage and baselines
+
+The two-run workflow needs to answer "is this the series I segmented last week?"
+without any identifier reaching the server.
+
+`GET /v1/me` returns `lineage_secret`: hex keying material derived per tenant from
+`VOXTELL_LINEAGE_SECRET`. The plugin computes
+
+```
+series_key  = HMAC-SHA256(lineage_secret, "voxtell/lineage/series/v1" ++ series_uid)
+for_key     = ... frame-of-reference UID
+scanner_key = ... manufacturer/model/serial, length-prefixed
+```
+
+and sends only those. **No DICOM UID, patient name, patient id or study date appears
+on any request.** `lineage_secret` is `null` when the deployment has not provisioned
+a master secret, and the plugin then records nothing rather than falling back to a
+shared default.
+
+Stated plainly, so nobody over-claims it: this is a **pseudonym, not anonymity**. The
+server issues the keying material, so it could recompute a key — but it is never sent
+a UID to recompute one from. And **rotating the master secret orphans every existing
+baseline**, because every series key changes. That is a deliberate cost, not routine
+hygiene.
+
+`POST /v1/qa/baselines` records a structure snapshot (contours and geometry, **never
+voxels**) as the "before" for a series.
+
+* **Idempotent on `(user, series_key, structure_set_sha256)`.** Reopening a patient
+  before editing anything is the normal case, and it must not create a second
+  baseline or bill twice. A repeat returns the same record with `created: false`.
+* A genuinely different snapshot **supersedes** its predecessor rather than appending,
+  so "the baseline for this series" is always one row. History is retained.
+* A snapshot whose structures are all `is_approved` skips `provisional` — Eclipse's
+  own approval state is read rather than waiting an arbitrary number of days.
+* Contours are stored under `u/{user}/qa/`, deliberately **outside** `jobs/` and
+  `volumes/`, so the four purge-by-prefix paths cannot reap them when the volume
+  expires. A baseline has to outlive both the job and the CT: the volume goes after a
+  2-hour idle TTL under an 8-hour ceiling, and the planner does not come back to edit
+  for days.
+
 ## Retention
 
 | what | how long |

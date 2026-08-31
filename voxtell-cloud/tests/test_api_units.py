@@ -121,7 +121,14 @@ def test_case_insensitive_duplicate_prompts_are_collapsed():
 
 
 def test_all_blank_prompts_is_an_error():
-    with pytest.raises(Exception, match="non-empty"):
+    """Blank prompts still fail, now via the prompts-xor-structure_ids rule.
+
+    Once ``prompts`` became optional (a CADS job is addressed by structure ids
+    instead), an all-blank list normalises to empty and is caught by the
+    exactly-one-target validator rather than by a prompts-specific message. What
+    matters is that a job with nothing to segment is still refused.
+    """
+    with pytest.raises(Exception, match="one of prompts or structure_ids"):
         job_request(prompts=["", "   "])
 
 

@@ -105,7 +105,45 @@ def geometry_sha256(geometry: Mapping[str, Any]) -> str:
 
 # --- result download -------------------------------------------------------
 
-RESULT_SCHEMA_VERSION = 2
+# Schema 3 adds real model identity. Schema 2 reported ``model`` as the basename
+# of a mount path, which named a deployment detail rather than a model, and could
+# not describe a job that ran more than one network.
+#
+# Every schema-3 addition is a NEW key: ``model`` stays a plain string, because
+# already-approved plugins in the field deserialise it as one and Newtonsoft
+# ignores keys it does not know. Changing a field's name or type would force a
+# DLL re-approval on every clinical workstation, which is not ours to schedule.
+RESULT_SCHEMA_VERSION = 3
+
+
+def model_identity(
+    key: str,
+    *,
+    display_name: str = "",
+    kind: str = "",
+    task: str | None = None,
+    version: str | None = None,
+    weights_variant: str | None = None,
+    weights_licence: str = "unknown",
+) -> dict[str, Any]:
+    """One entry for the envelope's ``models`` list.
+
+    ``weights_licence`` is recorded per job on purpose. CADS ships three weight
+    variants under three different licences selected by a CLI flag, only one of
+    which permits commercial use, so "which licence produced this contour" is a
+    question a clinic may have to answer later about a specific patient.
+    Reconstructing it afterwards from whatever happens to be deployed would be a
+    guess.
+    """
+    return {
+        "key": key,
+        "display_name": display_name or key,
+        "kind": kind,
+        "task": task,
+        "version": version,
+        "weights_variant": weights_variant,
+        "weights_licence": weights_licence,
+    }
 
 
 def result_envelope(
@@ -113,14 +151,22 @@ def result_envelope(
     model: str,
     prompts: Iterable[str],
     results: list[dict[str, Any]],
+    *,
+    models: list[dict[str, Any]] | None = None,
+    structure_ids: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """The JSON document stored at ``result.json.gz``.
 
-    ``results`` is one entry per prompt, in prompt order::
+    ``results`` is one entry per target, in request order. For a prompt model::
 
         {"prompt": "liver",
          "voxel_count": 812345,
          "contours": [{"z_index": 42, "points_lps": [[x, y, z], ...]}, ...]}
+
+    For a catalog-addressed model the entry also carries ``structure_id`` and
+    ``model``, so a reader can tell CADS's heart from VoxTell's -- which matters
+    for QA, where those are two different measurements and averaging them would
+    be meaningless.
 
     ``points_lps`` are millimetres in the DICOM patient coordinate system, ready
     for ``structure.AddContourOnImagePlane(points, z_index)`` in ESAPI.
@@ -128,7 +174,10 @@ def result_envelope(
     return {
         "schema": RESULT_SCHEMA_VERSION,
         "job_id": job_id,
+        # Retained as a bare string so schema-2 readers keep working.
         "model": model,
+        "models": models if models is not None else [model_identity(model)],
         "prompts": list(prompts),
+        "structure_ids": list(structure_ids or ()),
         "results": results,
     }

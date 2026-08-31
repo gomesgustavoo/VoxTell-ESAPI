@@ -24,7 +24,7 @@ from .config import settings
 from . import metrics as metrics_module
 from .db import init_db
 from .reclaim import reclaim_loop
-from .routes import health, jobs, keys, me, metrics, usage, volumes
+from .routes import catalog, health, jobs, keys, me, metrics, qa, usage, volumes
 from .sweeper import retention_loop
 
 logging.basicConfig(
@@ -122,10 +122,12 @@ async def record_request_metrics(request, call_next):
 for router in (
     health.router,
     metrics.router,
+    catalog.router,
     me.router,
     usage.router,
     keys.router,
     volumes.router,
     jobs.router,
+    qa.router,
 ):
     app.include_router(router, prefix="/v1")
