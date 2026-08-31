@@ -63,6 +63,10 @@ export interface Job {
   attempts?: number;
   failure_class?: string | null;
   volume_id?: string | null;
+  // additive, with model addressing: a job now names either free-text prompts or
+  // catalog structure ids, and reports which models actually ran.
+  structure_ids?: string[] | null;
+  models?: string[] | null;
 }
 
 export interface JobPage {
@@ -129,6 +133,47 @@ export interface SystemState {
   snapshot_age_seconds: number;
 }
 
+/** Mirrors api/schemas.py::CatalogModel. */
+export interface CatalogModel {
+  key: string;
+  display_name: string;
+  /** "prompt" takes free text; anything else takes structure ids. */
+  kind: string;
+  region: string;
+  modality: string;
+  count: number | null;
+  task: string | null;
+  weights_variant: string | null;
+  /** Shown, not hidden: only one CADS weights variant permits commercial use. */
+  weights_licence: string;
+  code_licence: string;
+}
+
+export interface CatalogStructure {
+  id: string;
+  display_name: string;
+  group: string;
+  modality: string;
+  source_model: string;
+  aliases: string[];
+}
+
+export interface CatalogPreset {
+  key: string;
+  display_name: string;
+  structure_ids: string[];
+  models: string[];
+}
+
+export interface Catalog {
+  version: number;
+  /** Render groups in this order. The server decides, not the client. */
+  group_order: string[];
+  models: CatalogModel[];
+  structures: CatalogStructure[];
+  presets: CatalogPreset[];
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -170,8 +215,22 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
+/** For the routes that carry no credential: /health, /auth/config, /models. */
+async function publicRequest<T>(path: string): Promise<T> {
+  const res = await fetch(`${env.apiBase}${path}`);
+  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
+  return (await res.json()) as T;
+}
+
 export const api = {
   me: (token: string) => request<Me>(token, "/me"),
+
+  // Unauthenticated, like /auth/config: it holds no patient data and nothing
+  // tenant-specific, and it is the same answer for every caller. Served from the
+  // API rather than compiled into either client, so adding a model is a server
+  // deployment — which for the Eclipse plugin is the difference between a config
+  // change and a physicist re-approving a DLL on every workstation.
+  catalog: () => publicRequest<Catalog>("/models"),
   usage: (token: string, days = 30) => request<Usage>(token, `/usage?days=${days}`),
   system: (token: string) => request<SystemState>(token, "/system"),
 

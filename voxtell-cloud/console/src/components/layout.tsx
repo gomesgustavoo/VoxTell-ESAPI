@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 const NAV = [
   { to: "/", label: "Overview", end: true },
   { to: "/jobs", label: "Jobs", end: false },
+  { to: "/models", label: "Models", end: false },
   { to: "/keys", label: "Keys", end: false },
   { to: "/billing", label: "Billing", end: false },
 ];

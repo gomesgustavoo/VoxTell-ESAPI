@@ -10,13 +10,17 @@
 import { Link } from "react-router-dom";
 
 import type { Job } from "../lib/api";
-import { structureColour } from "../lib/structures";
+import { jobModels, jobTargetNoun, jobTargets, structureColour } from "../lib/structures";
 import { bytes, duration, gpuTime, relative, stamp, voxels } from "../lib/format";
 import { Button, Cell, Progress, PromptChip, Row, StateBadge } from "./ui";
 
-/** The contour fragment, coloured from the job's first recognisable prompt. */
-function LedgerMark({ prompts }: { prompts: string[] }) {
-  const colour = prompts.map(structureColour).find(Boolean) ?? "var(--color-faint)" /* a UI colour, still a real @theme token */;
+/** The contour fragment, coloured from the job's first recognisable target.
+ *
+ *  Takes labels rather than `job.prompts`: a CADS job has no prompts, and colouring
+ *  its mark grey while a prompt job gets a real structure colour would make the
+ *  two look like different kinds of thing on the same list. */
+function LedgerMark({ labels }: { labels: string[] }) {
+  const colour = labels.map(structureColour).find(Boolean) ?? "var(--color-faint)" /* a UI colour, still a real @theme token */;
   return (
     <svg viewBox="0 0 26 12" className="h-3 w-[26px] flex-none overflow-visible" aria-hidden>
       <path
@@ -32,17 +36,18 @@ function LedgerMark({ prompts }: { prompts: string[] }) {
 
 /** One line, for the Overview's "last five". A link, now that a job has an address. */
 export function JobLine({ job }: { job: Job }) {
+  const targets = jobTargets(job);
   return (
     <Link
       to={`/jobs/${job.job_id}`}
       className="flex items-center gap-3 border-b border-border-soft px-1 py-2.5 transition-colors last:border-0 hover:bg-surface-2"
     >
-      <LedgerMark prompts={job.prompts} />
+      <LedgerMark labels={targets} />
       <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink">
-        {job.prompts.join(", ") || "—"}
+        {targets.join(", ") || "—"}
       </span>
       <span className="flex-none font-mono text-xs text-muted tabular-nums">
-        {job.prompts.length} {job.prompts.length === 1 ? "structure" : "structures"}
+        {targets.length} {jobTargetNoun(job, targets.length)}
       </span>
       <StateBadge state={job.state} />
     </Link>
@@ -69,6 +74,7 @@ export function JobTableRow({
   busy: boolean;
 }) {
   const active = job.state === "queued" || job.state === "running";
+  const targets = jobTargets(job);
   return (
     <Row>
       <Cell>
@@ -84,8 +90,8 @@ export function JobTableRow({
           to={`/jobs/${job.job_id}`}
           className="flex min-w-0 items-center gap-2 hover:text-accent"
         >
-          <LedgerMark prompts={job.prompts} />
-          <span className="truncate font-mono text-xs">{job.prompts.join(", ") || "—"}</span>
+          <LedgerMark labels={targets} />
+          <span className="truncate font-mono text-xs">{targets.join(", ") || "—"}</span>
         </Link>
       </Cell>
       <Cell mono className="whitespace-nowrap">
@@ -128,13 +134,15 @@ export function JobCard({
   busy: boolean;
 }) {
   const active = job.state === "queued" || job.state === "running";
+  const targets = jobTargets(job);
+  const models = jobModels(job);
   // Worth surfacing only when it says something: one attempt is the normal case.
   const requeued = (job.attempts ?? 0) > 1;
 
   return (
     <li className="rounded-card border border-border bg-surface">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
-        <LedgerMark prompts={job.prompts} />
+        <LedgerMark labels={targets} />
         <StateBadge state={job.state} />
         <span className="ml-auto font-mono text-[11px] text-faint tabular-nums" title={job.created_at}>
           {stamp(job.created_at)} · {relative(job.created_at)}
@@ -143,12 +151,16 @@ export function JobCard({
 
       <div className="px-4 py-3">
         <div className="flex flex-wrap gap-1.5">
-          {job.prompts.length ? (
-            job.prompts.map((p, i) => <PromptChip key={`${p}-${i}`} prompt={p} />)
+          {targets.length ? (
+            targets.map((t, i) => <PromptChip key={`${t}-${i}`} prompt={t} />)
           ) : (
-            <span className="text-xs text-muted">No prompts recorded</span>
+            <span className="text-xs text-muted">Nothing recorded for this job</span>
           )}
         </div>
+
+        {models.length > 0 && (
+          <p className="mt-2 font-mono text-[10px] text-faint">{models.join(" + ")}</p>
+        )}
 
         {active && (
           <div className="mt-3">

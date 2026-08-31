@@ -59,3 +59,37 @@ export function structureColour(prompt: string): string | undefined {
   const token = structureToken(prompt);
   return token ? `var(--vx-${token})` : undefined;
 }
+
+// --------------------------------------------------------------------------- //
+// Describing a job's targets, however it was addressed
+// --------------------------------------------------------------------------- //
+// A job names EITHER free-text prompts or catalog structure ids. Every view that
+// used to read `job.prompts` directly would render "—" and "No prompts recorded"
+// for a perfectly good CADS job, which reads as a broken job rather than a
+// differently-addressed one. So all of them go through here instead.
+
+import type { Job } from "./api";
+
+/** Human labels for what a job asked for, whichever way it was addressed. */
+export function jobTargets(job: Job): string[] {
+  if (job.prompts && job.prompts.length > 0) return job.prompts;
+
+  // "cads_556.rectum" -> "rectum". The model is shown separately, so repeating it
+  // on every chip is noise; the full id stays available as a title attribute.
+  return (job.structure_ids ?? []).map((id) => {
+    const dot = id.indexOf(".");
+    const tail = dot >= 0 ? id.slice(dot + 1) : id;
+    return tail.replace(/_/g, " ");
+  });
+}
+
+/** "prompt" or "structure", singular/plural, for a count label. */
+export function jobTargetNoun(job: Job, count: number): string {
+  const noun = job.prompts && job.prompts.length > 0 ? "prompt" : "structure";
+  return count === 1 ? noun : `${noun}s`;
+}
+
+/** The models a job ran, or an empty list for an older job that did not record them. */
+export function jobModels(job: Job): string[] {
+  return job.models ?? [];
+}

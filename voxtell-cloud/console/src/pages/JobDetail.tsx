@@ -15,6 +15,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
+import { jobModels, jobTargetNoun, jobTargets } from "../lib/structures";
 import { api, ApiError } from "../lib/api";
 import { bytes, duration, gpuTime, relative, stamp, voxels } from "../lib/format";
 import { useAuth } from "../auth/AuthProvider";
@@ -86,6 +87,11 @@ export default function JobDetail() {
   });
 
   const d = job.data;
+  // A job names either prompts or catalog structure ids. Reading `d.prompts`
+  // directly would render "No prompts recorded" for a perfectly good CADS job.
+  const targets = d ? jobTargets(d) : [];
+  const models = d ? jobModels(d) : [];
+  const prompted = !!(d?.prompts && d.prompts.length > 0);
   const active = d?.state === "queued" || d?.state === "running";
 
   if (job.isError) {
@@ -112,7 +118,7 @@ export default function JobDetail() {
     <div className="flex flex-col gap-5">
       <SectionHeader
         label="Job"
-        metric={d ? `${d.prompts.length} prompt${d.prompts.length === 1 ? "" : "s"}` : "loading"}
+        metric={d ? `${targets.length} ${jobTargetNoun(d, targets.length)}` : "loading"}
       >
         {d
           ? `Submitted ${stamp(d.created_at)} · ${relative(d.created_at)}.`
@@ -188,14 +194,30 @@ export default function JobDetail() {
             )}
           </Card>
 
-          <Card title="Prompts" eyebrow={`${d.prompts.length} in this job`}>
+          <Card
+            title={prompted ? "Prompts" : "Structures"}
+            eyebrow={`${targets.length} in this job`}
+            action={
+              models.length > 0 ? (
+                <span className="font-mono text-xs text-faint" title="Models that ran">
+                  {models.join(" + ")}
+                </span>
+              ) : undefined
+            }
+          >
             <div className="flex flex-wrap gap-1.5">
-              {d.prompts.length ? (
-                d.prompts.map((p, i) => <PromptChip key={`${p}-${i}`} prompt={p} />)
+              {targets.length ? (
+                targets.map((t, i) => <PromptChip key={`${t}-${i}`} prompt={t} />)
               ) : (
-                <span className="text-xs text-muted">No prompts recorded.</span>
+                <span className="text-xs text-muted">Nothing recorded for this job.</span>
               )}
             </div>
+            {!prompted && targets.length > 0 && (
+              <p className="mt-3 text-xs text-muted">
+                Addressed by catalog structure id, so the model set was derived from the
+                selection rather than chosen by the workstation.
+              </p>
+            )}
           </Card>
 
           <Card title="Measurements">

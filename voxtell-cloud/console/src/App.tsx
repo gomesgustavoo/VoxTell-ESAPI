@@ -17,6 +17,7 @@ import Checkout from "./pages/Checkout";
 import JobDetail from "./pages/JobDetail";
 import Jobs from "./pages/Jobs";
 import Keys from "./pages/Keys";
+import Models from "./pages/Models";
 import Overview from "./pages/Overview";
 
 /**
@@ -30,6 +31,7 @@ import Overview from "./pages/Overview";
 const TITLES: Record<string, string> = {
   "/": "Overview",
   "/jobs": "Jobs",
+  "/models": "Models",
   "/keys": "Workstation keys",
   "/billing": "Billing",
   "/checkout": "Checkout",
@@ -181,6 +183,7 @@ function SignedIn({ onSignOut }: { onSignOut: () => void }) {
         {/* Before this a job id was unlinkable: it appeared once, as mono text at the
             bottom of a card in a 25-row list. */}
         <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/models" element={<Models />} />
         <Route path="/keys" element={<Keys />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/checkout" element={<Checkout />} />
